@@ -1,0 +1,122 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load i18n %}
+{% load render_table from django_tables2 %}
+
+{% block title %}{{ object.order_no }}{% endblock %}
+
+{% block breadcrumbs %}
+{{ block.super }}
+<li class="breadcrumb-item">
+    <a href="{% url 'plugins:netbox_rms:serviceorder_list' %}">{% trans "业务主工单" %}</a>
+</li>
+<li class="breadcrumb-item active">{{ object.order_no }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "基础信息" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "业务单号" %}</th>
+                        <td>{{ object.order_no }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "客户单位" %}</th>
+                        <td>{{ object.customer_name }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "项目编号" %}</th>
+                        <td>{{ object.project_code }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "销售负责人" %}</th>
+                        <td>{{ object.sales_contact }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "时间信息" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "申请时间" %}</th>
+                        <td>{{ object.apply_date }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "完成期限" %}</th>
+                        <td>{{ object.deadline_date }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "计费日期" %}</th>
+                        <td>{{ object.billing_start_date|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "原单号" %}</th>
+                        <td>
+                            {% if object.parent_order %}
+                                <a href="{{ object.parent_order.get_absolute_url }}">{{ object.parent_order.order_no }}</a>
+                            {% else %}
+                                {{ ''|placeholder }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if object.comments %}
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">{% trans "备注" %}</h5>
+            <div class="card-body">{{ object.comments|linebreaksbr }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">{% trans "执行任务" %}</h5>
+            <div class="card-body table-responsive">
+                {% render_table tasks_table 'inc/table.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">{% trans "关联资源" %}</h5>
+            <div class="card-body table-responsive">
+                {% render_table resources_table 'inc/table.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if child_orders_table.rows %}
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">{% trans "变更工单" %}</h5>
+            <div class="card-body table-responsive">
+                {% render_table child_orders_table 'inc/table.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

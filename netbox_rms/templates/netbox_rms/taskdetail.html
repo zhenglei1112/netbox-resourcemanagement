@@ -1,0 +1,223 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load i18n %}
+
+{% block title %}{{ object }}{% endblock %}
+
+{% block breadcrumbs %}
+{{ block.super }}
+<li class="breadcrumb-item">
+    <a href="{% url 'plugins:netbox_rms:taskdetail_list' %}">{% trans "执行任务" %}</a>
+</li>
+<li class="breadcrumb-item active">{{ object }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "基础信息" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "主工单" %}</th>
+                        <td>
+                            <a href="{{ object.service_order.get_absolute_url }}">{{ object.service_order.order_no }}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "任务类型" %}</th>
+                        <td>{{ object.get_task_type_display }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "生命周期状态" %}</th>
+                        <td>{% badge object.get_lifecycle_status_display bg_color=object.lifecycle_status %}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "执行状态" %}</th>
+                        <td>{% badge object.get_execution_status_display bg_color=object.execution_status %}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "技术参数" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "业务类型" %}</th>
+                        <td>{{ object.get_service_type_display|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "带宽" %}</th>
+                        <td>{{ object.bandwidth|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "是否保护" %}</th>
+                        <td>{% if object.protection %}{% trans "是" %}{% else %}{% trans "否" %}{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "接口类型" %}</th>
+                        <td>{{ object.get_interface_type_display|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "A端站点" %}</th>
+                        <td>{{ object.site_a|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Z端站点" %}</th>
+                        <td>{{ object.site_z|placeholder }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "运维实施参数" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "电路编号" %}</th>
+                        <td>{{ object.circuit_id|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "A端设备" %}</th>
+                        <td>{{ object.dev_model_a|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "A端槽位/端口" %}</th>
+                        <td>{{ object.slot_a|placeholder }} / {{ object.port_a|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Z端设备" %}</th>
+                        <td>{{ object.dev_model_z|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Z端槽位/端口" %}</th>
+                        <td>{{ object.slot_z|placeholder }} / {{ object.port_z|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "配置完成" %}</th>
+                        <td>{% if object.config_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "测试完成" %}</th>
+                        <td>{% if object.test_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "管线实施参数" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "出局缆芯数" %}</th>
+                        <td>{{ object.cable_core|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "ODF位置" %}</th>
+                        <td>{{ object.odf_pos|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "跳接完成" %}</th>
+                        <td>{% if object.jump_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "外购资源" %}</th>
+                        <td>{% if object.ext_resource %}{% trans "是" %}{% else %}{% trans "否" %}{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "外购合同" %}</th>
+                        <td>{{ object.ext_contract|placeholder }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if object.task_type == 'hosting' %}
+<div class="row mb-3">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">{% trans "设备托管参数" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "设备类型" %}</th>
+                        <td>{{ object.device_brand|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "尺寸" %}</th>
+                        <td>{{ object.dimensions|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "功耗" %}</th>
+                        <td>{{ object.power_rating|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "机柜U位" %}</th>
+                        <td>{{ object.rack_u_pos|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "加电完成" %}</th>
+                        <td>{% if object.power_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if object.task_type == 'change' %}
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">{% trans "变更管理参数" %}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">{% trans "变更类型" %}</th>
+                        <td>{{ object.change_types|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "原状态" %}</th>
+                        <td>{{ object.old_value|linebreaksbr|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "变更后" %}</th>
+                        <td>{{ object.new_value|linebreaksbr|placeholder }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "外购处理" %}</th>
+                        <td>{{ object.get_ext_handle_display|placeholder }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if object.comments %}
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">{% trans "备注" %}</h5>
+            <div class="card-body">{{ object.comments|linebreaksbr }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

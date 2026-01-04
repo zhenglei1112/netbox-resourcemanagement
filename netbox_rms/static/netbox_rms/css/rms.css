@@ -1,0 +1,106 @@
+/**
+ * NetBox RMS 自定义样式
+ */
+
+/* 状态徽章扩展颜色 */
+.badge.bg-draft { background-color: #6c757d !important; }
+.badge.bg-reserved { background-color: #0d6efd !important; }
+.badge.bg-active { background-color: #198754 !important; }
+.badge.bg-suspended { background-color: #fd7e14 !important; }
+.badge.bg-terminated { background-color: #dc3545 !important; }
+
+.badge.bg-pending { background-color: #adb5bd !important; }
+.badge.bg-patched { background-color: #0dcaf0 !important; }
+.badge.bg-configured { background-color: #20c997 !important; }
+.badge.bg-connected { background-color: #198754 !important; }
+
+/* 资源台账状态指示 */
+.resource-status-card {
+    border-left: 4px solid;
+}
+
+.resource-status-card.status-active {
+    border-left-color: #198754;
+}
+
+.resource-status-card.status-terminated {
+    border-left-color: #dc3545;
+}
+
+.resource-status-card.status-suspended {
+    border-left-color: #fd7e14;
+}
+
+.resource-status-card.status-reserved {
+    border-left-color: #0d6efd;
+}
+
+/* 表格行状态高亮 */
+tr.row-terminated td {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+tr.row-active td {
+    background-color: rgba(25, 135, 84, 0.05) !important;
+}
+
+tr.row-suspended td {
+    background-color: rgba(253, 126, 20, 0.1) !important;
+}
+
+/* 任务类型图标 */
+.task-type-icon {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    margin-right: 8px;
+}
+
+.task-type-icon.verification { background-color: #e7f1ff; color: #0d6efd; }
+.task-type-icon.allocation { background-color: #d1e7dd; color: #198754; }
+.task-type-icon.change { background-color: #fff3cd; color: #ffc107; }
+.task-type-icon.hosting { background-color: #f8d7da; color: #dc3545; }
+
+/* 时间线样式 (用于变更追溯) */
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #0d6efd;
+    border: 2px solid #fff;
+}
+
+.timeline-item.current::before {
+    background-color: #198754;
+    width: 14px;
+    height: 14px;
+    left: -26px;
+    top: 2px;
+}
