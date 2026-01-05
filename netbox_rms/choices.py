@@ -131,3 +131,149 @@ class ExternalHandleChoices(ChoiceSet):
         (CONTINUE, _('延续')),
         (CHANGE, _('变更')),
     ]
+
+
+class InternalParticipantChoices(ChoiceSet):
+    """内部参与方选择项"""
+    
+    MARKETING = 'marketing'             # 市场部
+    JIANGXI = 'jiangxi'                 # 江西分公司
+    ZHEJIANG = 'zhejiang'               # 浙江分公司
+    SICHUAN = 'sichuan'                 # 四川分公司
+    
+    CHOICES = [
+        (MARKETING, _('市场部')),
+        (JIANGXI, _('江西分公司')),
+        (ZHEJIANG, _('浙江分公司')),
+        (SICHUAN, _('四川分公司')),
+    ]
+
+
+# =============================================================================
+# 资源核查相关选择项
+# =============================================================================
+
+class ResourceCheckTypeChoices(ChoiceSet):
+    """资源核查业务类别"""
+    
+    TRANSMISSION = 'transmission'       # 传输专线业务
+    FIBER = 'fiber'                     # 光缆光纤业务
+    COLOCATION = 'colocation'           # 托管业务
+    
+    CHOICES = [
+        (TRANSMISSION, _('传输专线业务')),
+        (FIBER, _('光缆光纤业务')),
+        (COLOCATION, _('托管业务')),
+    ]
+
+
+class BandwidthChoices(ChoiceSet):
+    """带宽选项"""
+    
+    GE = 'GE'
+    G2_5 = '2.5G'
+    G10 = '10G'
+    G100 = '100G'
+    
+    CHOICES = [
+        (GE, 'GE'),
+        (G2_5, '2.5G'),
+        (G10, '10G'),
+        (G100, '100G'),
+    ]
+
+
+class TransmissionCheckResultChoices(ChoiceSet):
+    """传输专线核查结果"""
+    
+    AVAILABLE = 'available'
+    UNAVAILABLE = 'unavailable'
+    
+    CHOICES = [
+        (AVAILABLE, _('具备')),
+        (UNAVAILABLE, _('不具备')),
+    ]
+
+
+class TransmissionUnavailableReasonChoices(ChoiceSet):
+    """传输专线不具备原因（多选）"""
+    
+    WAVELENGTH = 'wavelength'
+    MODULE = 'module'
+    CARD = 'card'
+    PROTECTION = 'protection'
+    
+    CHOICES = [
+        (WAVELENGTH, _('波道不满足')),
+        (MODULE, _('模块不满足')),
+        (CARD, _('板卡不满足')),
+        (PROTECTION, _('成环保护不满足')),
+    ]
+
+
+class FiberCheckResultChoices(ChoiceSet):
+    """光缆光纤核查结果"""
+    
+    AVAILABLE = 'available'
+    UNAVAILABLE = 'unavailable'
+    
+    CHOICES = [
+        (AVAILABLE, _('具备')),
+        (UNAVAILABLE, _('不具备')),
+    ]
+
+
+class FiberUnavailableReasonChoices(ChoiceSet):
+    """光缆光纤不具备原因（多选）"""
+    
+    FIBER = 'fiber'
+    PROTECTION = 'protection'
+    
+    CHOICES = [
+        (FIBER, _('光纤不满足')),
+        (PROTECTION, _('成环保护不满足')),
+    ]
+
+
+class ColocationCheckResultChoices(ChoiceSet):
+    """托管业务核查结果"""
+    
+    AVAILABLE = 'available'
+    UNAVAILABLE = 'unavailable'
+    
+    CHOICES = [
+        (AVAILABLE, _('具备')),
+        (UNAVAILABLE, _('不具备')),
+    ]
+
+
+class ColocationUnavailableReasonChoices(ChoiceSet):
+    """托管业务不具备原因（多选）"""
+    
+    CABINET = 'cabinet'
+    POWER = 'power'
+    SPACE = 'space'
+    FIBER = 'fiber'
+    
+    CHOICES = [
+        (CABINET, _('机柜不满足')),
+        (POWER, _('配电不满足')),
+        (SPACE, _('机柜空间不满足')),
+        (FIBER, _('引接纤芯不满足')),
+    ]
+
+
+class ColocationDeviceTypeChoices(ChoiceSet):
+    """托管设备类型"""
+    
+    TRANSMISSION = 'transmission'
+    SWITCH = 'switch'
+    ROUTER = 'router'
+    OTHER = 'other'
+    
+    CHOICES = [
+        (TRANSMISSION, _('传输设备')),
+        (SWITCH, _('交换机')),
+        (ROUTER, _('路由器')),
+        (OTHER, _('其他')),
+    ]

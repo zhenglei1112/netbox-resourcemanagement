@@ -10,6 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from netbox.filtersets import NetBoxModelFilterSet
 
 from .models import ServiceOrder, TaskDetail, ResourceLedger
+from tenancy.models import Tenant
 from .choices import (
     TaskTypeChoices,
     LifecycleStatusChoices,
@@ -31,9 +32,10 @@ class ServiceOrderFilterSet(NetBoxModelFilterSet):
         label=_('业务单号'),
     )
     
-    customer_name = django_filters.CharFilter(
-        lookup_expr='icontains',
-        label=_('客户名称'),
+    tenant_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Tenant.objects.all(),
+        field_name='tenant',
+        label=_('客户单位'),
     )
     
     project_code = django_filters.CharFilter(
@@ -44,6 +46,11 @@ class ServiceOrderFilterSet(NetBoxModelFilterSet):
     sales_contact = django_filters.CharFilter(
         lookup_expr='icontains',
         label=_('销售负责人'),
+    )
+    
+    business_manager = django_filters.CharFilter(
+        lookup_expr='icontains',
+        label=_('商务负责人'),
     )
     
     apply_date_after = django_filters.DateFilter(
@@ -65,16 +72,17 @@ class ServiceOrderFilterSet(NetBoxModelFilterSet):
     
     class Meta:
         model = ServiceOrder
-        fields = ['id', 'order_no', 'customer_name', 'project_code', 'sales_contact']
+        fields = ['id', 'order_no', 'tenant_id', 'project_code', 'sales_contact', 'business_manager']
     
     def search(self, queryset, name, value):
         if not value.strip():
             return queryset
         return queryset.filter(
             Q(order_no__icontains=value) |
-            Q(customer_name__icontains=value) |
+            Q(tenant__name__icontains=value) |
             Q(project_code__icontains=value) |
-            Q(sales_contact__icontains=value)
+            Q(sales_contact__icontains=value) |
+            Q(business_manager__icontains=value)
         )
     
     def filter_has_parent(self, queryset, name, value):

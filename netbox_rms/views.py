@@ -64,6 +64,7 @@ class ServiceOrderEditView(generic.ObjectEditView):
     
     queryset = ServiceOrder.objects.all()
     form = ServiceOrderForm
+    template_name = 'netbox_rms/serviceorder_edit.html'
 
 
 class ServiceOrderDeleteView(generic.ObjectDeleteView):

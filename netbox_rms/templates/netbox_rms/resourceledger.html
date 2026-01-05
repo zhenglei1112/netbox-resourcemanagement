@@ -17,53 +17,49 @@
     <div class="col col-md-6">
         <div class="card">
             <h5 class="card-header">{% trans "资源信息" %}</h5>
-            <div class="card-body">
-                <table class="table table-hover attr-table">
-                    <tr>
-                        <th scope="row">{% trans "资源类型" %}</th>
-                        <td>{{ object.get_resource_type_display }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">{% trans "资源标识" %}</th>
-                        <td>{{ object.resource_id }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">{% trans "资源名称" %}</th>
-                        <td>{{ object.resource_name|placeholder }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">{% trans "来源工单" %}</th>
-                        <td>
-                            <a href="{{ object.service_order.get_absolute_url }}">{{ object.service_order.order_no }}</a>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">{% trans "资源类型" %}</th>
+                    <td>{{ object.get_resource_type_display }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "资源标识" %}</th>
+                    <td>{{ object.resource_id }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "资源名称" %}</th>
+                    <td>{{ object.resource_name|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "来源工单" %}</th>
+                    <td>
+                        <a href="{{ object.service_order.get_absolute_url }}">{{ object.service_order.order_no }}</a>
+                    </td>
+                </tr>
+            </table>
         </div>
     </div>
     <div class="col col-md-6">
         <div class="card">
             <h5 class="card-header">{% trans "状态" %}</h5>
-            <div class="card-body">
-                <table class="table table-hover attr-table">
-                    <tr>
-                        <th scope="row">{% trans "生命周期状态" %}</th>
-                        <td>
-                            <span class="badge bg-{{ object.get_status_color }}">
-                                {{ object.get_lifecycle_status_display }}
-                            </span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">{% trans "创建时间" %}</th>
-                        <td>{{ object.created }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">{% trans "更新时间" %}</th>
-                        <td>{{ object.last_updated }}</td>
-                    </tr>
-                </table>
-            </div>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">{% trans "生命周期状态" %}</th>
+                    <td>
+                        <span class="badge bg-{{ object.get_status_color }}">
+                            {{ object.get_lifecycle_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "创建时间" %}</th>
+                    <td>{{ object.created }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "更新时间" %}</th>
+                    <td>{{ object.last_updated }}</td>
+                </tr>
+            </table>
         </div>
     </div>
 </div>

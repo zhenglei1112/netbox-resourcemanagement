@@ -19,7 +19,8 @@ class ServiceOrderTable(NetBoxTable):
         verbose_name=_('业务单号'),
     )
     
-    customer_name = tables.Column(
+    tenant = tables.Column(
+        linkify=True,
         verbose_name=_('客户单位'),
     )
     
@@ -29,6 +30,10 @@ class ServiceOrderTable(NetBoxTable):
     
     sales_contact = tables.Column(
         verbose_name=_('销售负责人'),
+    )
+    
+    business_manager = tables.Column(
+        verbose_name=_('商务负责人'),
     )
     
     apply_date = tables.DateColumn(
@@ -57,12 +62,12 @@ class ServiceOrderTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = ServiceOrder
         fields = (
-            'pk', 'id', 'order_no', 'customer_name', 'project_code',
-            'sales_contact', 'apply_date', 'deadline_date',
+            'pk', 'id', 'order_no', 'tenant', 'project_code',
+            'sales_contact', 'business_manager', 'apply_date', 'deadline_date',
             'billing_start_date', 'parent_order', 'task_count', 'actions',
         )
         default_columns = (
-            'order_no', 'customer_name', 'project_code', 'apply_date',
+            'order_no', 'tenant', 'project_code', 'apply_date',
             'deadline_date', 'task_count', 'actions',
         )
 

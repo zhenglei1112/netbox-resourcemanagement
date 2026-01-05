@@ -1,0 +1,240 @@
+{% extends 'generic/object_edit.html' %}
+{% load form_helpers %}
+{% load i18n %}
+
+{% block form %}
+{{ block.super }}
+
+{# 托管设备动态输入区域 #}
+<div id="colocation-devices-container" class="card mt-3" style="display: none;">
+    <h5 class="card-header">{% trans "托管设备列表" %}</h5>
+    <div class="card-body p-2">
+        <table class="table table-sm table-striped mb-2" id="devices-table" style="font-size: 0.85em;">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">{% trans "设备类型" %}</th>
+                    <th style="width: 130px;">{% trans "品牌型号" %}</th>
+                    <th style="width: 65px;">{% trans "长(cm)" %}</th>
+                    <th style="width: 65px;">{% trans "宽(cm)" %}</th>
+                    <th style="width: 65px;">{% trans "高(cm)" %}</th>
+                    <th style="width: 55px;">{% trans "U数" %}</th>
+                    <th style="width: 70px;">{% trans "能耗(W)" %}</th>
+                    <th style="width: 35px;"></th>
+                </tr>
+            </thead>
+            <tbody id="devices-tbody">
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-success btn-sm" id="add-device-btn">
+            <i class="mdi mdi-plus"></i> {% trans "添加设备" %}
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkTypeField = document.querySelector('[name="check_type"]');
+    const devicesContainer = document.getElementById('colocation-devices-container');
+    const devicesTbody = document.getElementById('devices-tbody');
+    const devicesJsonField = document.querySelector('[name="check_devices_json"]');
+    const addDeviceBtn = document.getElementById('add-device-btn');
+    
+    // 设备类型选项
+    const deviceTypeOptions = [
+        { value: 'transmission', label: '传输设备' },
+        { value: 'switch', label: '交换机' },
+        { value: 'router', label: '路由器' },
+        { value: 'other', label: '其他' }
+    ];
+    
+    // 字段分组
+    const transmissionFields = ['check_bandwidth', 'check_quantity', 'check_site_a', 'check_site_z', 'check_needs_protection', 'check_interface_type', 'check_result_transmission', 'check_unavailable_reasons_transmission'];
+    const fiberFields = ['check_quantity', 'check_site_a', 'check_site_z', 'check_needs_protection', 'check_interface_type', 'check_result_fiber', 'check_unavailable_reasons_fiber'];
+    const colocationFields = ['check_site', 'check_egress_fiber_cores', 'check_result_colocation', 'check_unavailable_reasons'];
+    const allCheckFields = [...new Set([...transmissionFields, ...fiberFields, ...colocationFields])];
+    
+    function getFieldRow(fieldName) {
+        const field = document.querySelector(`[name="${fieldName}"]`);
+        if (field) {
+            let parent = field.closest('.mb-3') || field.closest('.form-group') || field.closest('tr');
+            return parent;
+        }
+        return null;
+    }
+    
+    function showFields(fieldNames) {
+        fieldNames.forEach(name => {
+            const row = getFieldRow(name);
+            if (row) {
+                row.style.display = '';
+                row.style.visibility = 'visible';
+                row.style.position = '';
+                row.style.height = '';
+                row.style.overflow = '';
+            }
+        });
+    }
+    
+    function hideFields(fieldNames) {
+        fieldNames.forEach(name => {
+            const row = getFieldRow(name);
+            if (row) {
+                // 使用 visibility 隐藏，确保字段值仍然提交
+                row.style.visibility = 'hidden';
+                row.style.position = 'absolute';
+                row.style.height = '0';
+                row.style.overflow = 'hidden';
+            }
+        });
+    }
+    
+    function createDeviceRow(device = {}) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <select class="form-select form-select-sm device-type" style="width: 100%; padding: 0.2rem 0.4rem;">
+                    ${deviceTypeOptions.map(opt => 
+                        `<option value="${opt.value}" ${device.device_type === opt.value ? 'selected' : ''}>${opt.label}</option>`
+                    ).join('')}
+                </select>
+            </td>
+            <td><input type="text" class="form-control form-control-sm device-model" value="${device.model || ''}" placeholder="品牌型号" style="width: 100%; padding: 0.2rem 0.4rem;"></td>
+            <td><input type="number" class="form-control form-control-sm device-length" value="${device.length || ''}" step="0.01" min="0" style="width: 100%; padding: 0.2rem 0.4rem;"></td>
+            <td><input type="number" class="form-control form-control-sm device-width" value="${device.width || ''}" step="0.01" min="0" style="width: 100%; padding: 0.2rem 0.4rem;"></td>
+            <td><input type="number" class="form-control form-control-sm device-height" value="${device.height || ''}" step="0.01" min="0" style="width: 100%; padding: 0.2rem 0.4rem;"></td>
+            <td><input type="number" class="form-control form-control-sm device-rack-units" value="${device.rack_units || ''}" min="1" style="width: 100%; padding: 0.2rem 0.4rem;"></td>
+            <td><input type="number" class="form-control form-control-sm device-power" value="${device.power_consumption || ''}" step="0.01" min="0" style="width: 100%; padding: 0.2rem 0.4rem;"></td>
+            <td><button type="button" class="btn btn-danger btn-sm remove-device-btn" style="padding: 0.15rem 0.4rem;"><i class="mdi mdi-delete"></i></button></td>
+        `;
+        return tr;
+    }
+    
+    function updateDevicesJson() {
+        const devices = [];
+        document.querySelectorAll('#devices-tbody tr').forEach(tr => {
+            devices.push({
+                device_type: tr.querySelector('.device-type').value,
+                model: tr.querySelector('.device-model').value,
+                length: parseFloat(tr.querySelector('.device-length').value) || 0,
+                width: parseFloat(tr.querySelector('.device-width').value) || 0,
+                height: parseFloat(tr.querySelector('.device-height').value) || 0,
+                rack_units: parseInt(tr.querySelector('.device-rack-units').value) || 0,
+                power_consumption: parseFloat(tr.querySelector('.device-power').value) || 0
+            });
+        });
+        if (devicesJsonField) {
+            devicesJsonField.value = JSON.stringify(devices);
+        }
+    }
+    
+    function loadDevicesFromJson() {
+        if (devicesJsonField && devicesJsonField.value) {
+            try {
+                const devices = JSON.parse(devicesJsonField.value);
+                devices.forEach(device => {
+                    devicesTbody.appendChild(createDeviceRow(device));
+                });
+            } catch (e) {
+                console.error('Failed to parse devices JSON:', e);
+            }
+        }
+    }
+    
+    function toggleCheckFields() {
+        const checkType = checkTypeField ? checkTypeField.value : '';
+        
+        // 隐藏所有核查字段
+        hideFields(allCheckFields);
+        
+        // 隐藏隐藏字段的行
+        const devicesJsonRow = getFieldRow('check_devices_json');
+        if (devicesJsonRow) devicesJsonRow.style.display = 'none';
+        
+        // 隐藏设备容器
+        if (devicesContainer) devicesContainer.style.display = 'none';
+        
+        // 根据类型显示对应字段
+        if (checkType === 'transmission') {
+            showFields(transmissionFields);
+        } else if (checkType === 'fiber') {
+            showFields(fiberFields);
+        } else if (checkType === 'colocation') {
+            showFields(colocationFields);
+            if (devicesContainer) devicesContainer.style.display = 'block';
+        }
+    }
+    
+    // 添加设备按钮
+    if (addDeviceBtn) {
+        addDeviceBtn.addEventListener('click', function() {
+            devicesTbody.appendChild(createDeviceRow());
+            updateDevicesJson();
+        });
+    }
+    
+    // 删除设备按钮事件委托
+    if (devicesTbody) {
+        devicesTbody.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-device-btn')) {
+                e.target.closest('tr').remove();
+                updateDevicesJson();
+            }
+        });
+        
+        // 输入变化时更新 JSON
+        devicesTbody.addEventListener('change', updateDevicesJson);
+        devicesTbody.addEventListener('input', updateDevicesJson);
+    }
+    
+    // 初始化
+    loadDevicesFromJson();
+    
+    // 将设备卡片移动到正确位置（check_egress_fiber_cores 字段之后）
+    function moveDevicesContainer() {
+        const egressFiberRow = getFieldRow('check_egress_fiber_cores');
+        if (egressFiberRow && devicesContainer) {
+            egressFiberRow.parentNode.insertBefore(devicesContainer, egressFiberRow.nextSibling);
+        }
+    }
+    moveDevicesContainer();;
+    
+    // 延迟初始化以等待 TomSelect 组件加载
+    function initCheckTypeToggle() {
+        if (checkTypeField) {
+            // 监听原生 change 事件
+            checkTypeField.addEventListener('change', toggleCheckFields);
+            
+            // 如果使用 TomSelect，也监听其事件
+            if (checkTypeField.tomselect) {
+                checkTypeField.tomselect.on('change', toggleCheckFields);
+            }
+            
+            // 初始触发
+            toggleCheckFields();
+            console.log('toggleCheckFields initialized, current value:', checkTypeField.value);
+        }
+    }
+    
+    // 立即执行一次
+    initCheckTypeToggle();
+    
+    // 延迟 500ms 再执行一次，确保 TomSelect 等组件已加载
+    setTimeout(initCheckTypeToggle, 500);
+    
+    // 托管核查结果变化时控制不具备原因显示
+    const checkResultColocation = document.querySelector('[name="check_result_colocation"]');
+    if (checkResultColocation) {
+        checkResultColocation.addEventListener('change', toggleUnavailableReasons);
+    }
+    
+    // 表单提交前更新设备 JSON
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', updateDevicesJson);
+    }
+});
+</script>
+{% endblock %}

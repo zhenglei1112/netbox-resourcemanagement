@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from netbox.models import NetBoxModel
+from tenancy.models import Tenant
 
 from .choices import (
     TaskTypeChoices,
@@ -22,6 +23,8 @@ from .choices import (
     ResourceTypeChoices,
     ChangeTypeChoices,
     ExternalHandleChoices,
+    InternalParticipantChoices,
+    ResourceCheckTypeChoices,
 )
 
 
@@ -40,10 +43,12 @@ class ServiceOrder(NetBoxModel):
         help_text=_('唯一业务单号，如 XQ251010001-JX, BG251226001'),
     )
     
-    customer_name = models.CharField(
-        max_length=255,
-        verbose_name=_('客户单位名称'),
-        help_text=_('如：缆讯科技（北京）有限公司'),
+    tenant = models.ForeignKey(
+        to=Tenant,
+        on_delete=models.PROTECT,
+        related_name='service_orders',
+        verbose_name=_('客户单位'),
+        help_text=_('从 NetBox 租户中选择'),
     )
     
     project_code = models.CharField(
@@ -57,13 +62,28 @@ class ServiceOrder(NetBoxModel):
         verbose_name=_('销售负责人'),
     )
     
+    business_manager = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('商务负责人'),
+        help_text=_('商务对接负责人'),
+    )
+    
+    internal_participant = models.CharField(
+        max_length=50,
+        choices=InternalParticipantChoices,
+        blank=True,
+        verbose_name=_('内部参与方'),
+        help_text=_('选择内部参与方：市场部、江西分公司、浙江分公司、四川分公司'),
+    )
+    
     # 时间相关
     apply_date = models.DateField(
         verbose_name=_('申请时间'),
     )
     
     deadline_date = models.DateField(
-        verbose_name=_('要求完成时间'),
+        verbose_name=_('计划开通时间'),
     )
     
     billing_start_date = models.DateField(
@@ -84,6 +104,35 @@ class ServiceOrder(NetBoxModel):
         help_text=_('变更单必须关联原调配单ID'),
     )
     
+    # ========== 资源核查扩展字段 ==========
+    check_type = models.CharField(
+        max_length=50,
+        choices=ResourceCheckTypeChoices,
+        blank=True,
+        verbose_name=_('核查业务类别'),
+        help_text=_('传输专线、光缆光纤、托管'),
+    )
+    
+    check_data = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('核查数据'),
+        help_text=_('存储类型特定的核查属性'),
+    )
+    
+    check_result = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('核查结果'),
+    )
+    
+    unavailable_reasons = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_('不具备原因'),
+        help_text=_('托管业务不具备时的原因列表'),
+    )
+    
     # 备注
     comments = models.TextField(
         blank=True,
@@ -95,8 +144,40 @@ class ServiceOrder(NetBoxModel):
         verbose_name = _('业务主工单')
         verbose_name_plural = _('业务主工单')
     
+    @property
+    def safe_check_data(self):
+        """安全获取 check_data，确保返回字典而非 None"""
+        return self.check_data if self.check_data else {}
+    
+    @property
+    def safe_unavailable_reasons(self):
+        """安全获取 unavailable_reasons，确保返回列表而非 None"""
+        return self.unavailable_reasons if self.unavailable_reasons else []
+    
+    @property
+    def check_result_display(self):
+        """获取核查结果的中文显示"""
+        result_mapping = {
+            'available': '具备',
+            'unavailable': '不具备',
+            'need_module': '需增加模块',
+            'need_card': '需增加板卡',
+        }
+        return result_mapping.get(self.check_result, self.check_result or '')
+    
+    @property
+    def interface_type_display(self):
+        """获取接口类型的中文显示"""
+        data = self.safe_check_data
+        interface_type = data.get('interface_type', '')
+        type_mapping = {
+            'optical': '光',
+            'electrical': '电',
+        }
+        return type_mapping.get(interface_type, interface_type or '')
+    
     def __str__(self) -> str:
-        return f"{self.order_no} - {self.customer_name}"
+        return f"{self.order_no} - {self.tenant.name}"
     
     def get_absolute_url(self) -> str:
         return reverse('plugins:netbox_rms:serviceorder', args=[self.pk])

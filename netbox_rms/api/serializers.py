@@ -4,6 +4,7 @@ NetBox RMS REST API 序列化器
 from rest_framework import serializers
 
 from netbox.api.serializers import NetBoxModelSerializer
+from tenancy.api.serializers import TenantSerializer
 
 from ..models import ServiceOrder, TaskDetail, ResourceLedger
 
@@ -14,6 +15,8 @@ class ServiceOrderSerializer(NetBoxModelSerializer):
     url = serializers.HyperlinkedIdentityField(
         view_name='plugins-api:netbox_rms-api:serviceorder-detail',
     )
+    
+    tenant = TenantSerializer(nested=True)
     
     parent_order = serializers.PrimaryKeyRelatedField(
         queryset=ServiceOrder.objects.all(),
@@ -28,13 +31,16 @@ class ServiceOrderSerializer(NetBoxModelSerializer):
         model = ServiceOrder
         fields = [
             'id', 'url', 'display',
-            'order_no', 'customer_name', 'project_code', 'sales_contact',
+            'order_no', 'tenant', 'project_code', 'sales_contact',
+            'business_manager', 'internal_participant',
             'apply_date', 'deadline_date', 'billing_start_date',
-            'parent_order', 'comments',
+            'parent_order',
+            'check_type', 'check_data', 'check_result', 'unavailable_reasons',
+            'comments',
             'task_count', 'resource_count',
             'tags', 'custom_fields', 'created', 'last_updated',
         ]
-        brief_fields = ['id', 'url', 'display', 'order_no', 'customer_name']
+        brief_fields = ['id', 'url', 'display', 'order_no', 'tenant']
 
 
 class TaskDetailSerializer(NetBoxModelSerializer):
