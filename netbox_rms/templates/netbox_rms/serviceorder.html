@@ -52,10 +52,7 @@
                         {% endif %}
                     </td>
                 </tr>
-                <tr>
-                    <th scope="row">{% trans "项目编号" %}</th>
-                    <td>{{ object.project_code }}</td>
-                </tr>
+
                 <tr>
                     <th scope="row">{% trans "销售负责人" %}</th>
                     <td>{{ object.sales_contact }}</td>
@@ -79,6 +76,8 @@
             </table>
         </div>
 
+
+
         {# 资源核查卡片 #}
         {% if object.check_type %}
         <div class="card mb-3">
@@ -90,7 +89,7 @@
                 </colgroup>
                 <tr>
                     <th scope="row">{% trans "业务类别" %}</th>
-                    <td>{{ object.get_check_type_display }}</td>
+                    <td><span class="badge bg-{{ object.get_check_type_color }}" style="color: #fff !important">{{ object.get_check_type_display }}</span></td>
                 </tr>
                 {% if object.check_type == 'transmission' %}
                     <tr>
@@ -103,11 +102,23 @@
                     </tr>
                     <tr>
                         <th scope="row">{% trans "A端站点" %}</th>
-                        <td>{{ object.safe_check_data.site_a_name|default_if_none:""|placeholder }}</td>
+                        <td>
+                            {% if object.site_a_object %}
+                                <a href="{{ object.site_a_object.get_absolute_url }}">{{ object.safe_check_data.site_a_name|default:object.site_a_object.name }}</a>
+                            {% else %}
+                                {{ object.safe_check_data.site_a_name|default_if_none:""|placeholder }}
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "Z端站点" %}</th>
-                        <td>{{ object.safe_check_data.site_z_name|default_if_none:""|placeholder }}</td>
+                        <td>
+                            {% if object.site_z_object %}
+                                <a href="{{ object.site_z_object.get_absolute_url }}">{{ object.safe_check_data.site_z_name|default:object.site_z_object.name }}</a>
+                            {% else %}
+                                {{ object.safe_check_data.site_z_name|default_if_none:""|placeholder }}
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "需要保护" %}</th>
@@ -115,7 +126,7 @@
                     </tr>
                     <tr>
                         <th scope="row">{% trans "接口类型" %}</th>
-                        <td>{{ object.interface_type_display|placeholder }}</td>
+                        <td><span class="badge bg-{{ object.get_interface_type_color }}" style="color: #fff !important">{{ object.interface_type_display|placeholder }}</span></td>
                     </tr>
                 {% elif object.check_type == 'fiber' %}
                     <tr>
@@ -124,11 +135,23 @@
                     </tr>
                     <tr>
                         <th scope="row">{% trans "A端站点" %}</th>
-                        <td>{{ object.safe_check_data.site_a_name|default_if_none:""|placeholder }}</td>
+                        <td>
+                            {% if object.site_a_object %}
+                                <a href="{{ object.site_a_object.get_absolute_url }}">{{ object.safe_check_data.site_a_name|default:object.site_a_object.name }}</a>
+                            {% else %}
+                                {{ object.safe_check_data.site_a_name|default_if_none:""|placeholder }}
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "Z端站点" %}</th>
-                        <td>{{ object.safe_check_data.site_z_name|default_if_none:""|placeholder }}</td>
+                        <td>
+                            {% if object.site_z_object %}
+                                <a href="{{ object.site_z_object.get_absolute_url }}">{{ object.safe_check_data.site_z_name|default:object.site_z_object.name }}</a>
+                            {% else %}
+                                {{ object.safe_check_data.site_z_name|default_if_none:""|placeholder }}
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "需要保护" %}</th>
@@ -136,12 +159,18 @@
                     </tr>
                     <tr>
                         <th scope="row">{% trans "接口类型" %}</th>
-                        <td>{{ object.interface_type_display|placeholder }}</td>
+                        <td><span class="badge bg-{{ object.get_interface_type_color }}" style="color: #fff !important">{{ object.interface_type_display|placeholder }}</span></td>
                     </tr>
                 {% elif object.check_type == 'colocation' %}
                     <tr>
                         <th scope="row">{% trans "机房" %}</th>
-                        <td>{{ object.safe_check_data.site_name|default_if_none:""|placeholder }}</td>
+                        <td>
+                            {% if object.colocation_site_object %}
+                                <a href="{{ object.colocation_site_object.get_absolute_url }}">{{ object.safe_check_data.site_name|default:object.colocation_site_object.name }}</a>
+                            {% else %}
+                                {{ object.safe_check_data.site_name|default_if_none:""|placeholder }}
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "出局纤芯数" %}</th>
@@ -180,7 +209,22 @@
 
         {# 核查结果卡片 #}
         <div class="card mb-3">
-            <h5 class="card-header">{% trans "核查结果" %}</h5>
+            <h5 class="card-header d-flex justify-content-between align-items-center">
+                {% trans "核查结果" %}
+                {% if object.check_result_obj %}
+                    {% if perms.netbox_rms.change_resourcecheckresult %}
+                        <a href="{% url 'plugins:netbox_rms:resourcecheckresult_edit' pk=object.check_result_obj.pk %}?return_url={{ object.get_absolute_url }}" class="btn btn-sm btn-warning">
+                            <i class="mdi mdi-pencil" aria-hidden="true"></i> {% trans "编辑" %}
+                        </a>
+                    {% endif %}
+                {% else %}
+                    {% if perms.netbox_rms.add_resourcecheckresult %}
+                        <a href="{% url 'plugins:netbox_rms:resourcecheckresult_add' %}?service_order={{ object.pk }}&return_url={{ object.get_absolute_url }}" class="btn btn-sm btn-primary">
+                            <i class="mdi mdi-plus-thick" aria-hidden="true"></i> {% trans "添加" %}
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </h5>
             <table class="table table-hover attr-table" style="table-layout: fixed;">
                 <colgroup>
                     <col style="width: 38.2%;">
@@ -223,9 +267,48 @@
                         {% endif %}
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row">{% trans "说明" %}</th>
+                    <td>{{ object.check_result_obj.description|placeholder }}</td>
+                </tr>
             </table>
         </div>
         {% endif %}
+
+        {# 执行信息卡片 #}
+        <div class="card mb-3">
+            <h5 class="card-header">{% trans "执行信息" %}</h5>
+            <table class="table table-hover attr-table" style="table-layout: fixed;">
+                <colgroup>
+                    <col style="width: 38.2%;">
+                    <col>
+                </colgroup>
+                <tr>
+                    <th scope="row">{% trans "项目报备编号" %}</th>
+                    <td>{{ object.project_report_code|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "立项编号" %}</th>
+                    <td>{{ object.project_approval_code|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "合同编号" %}</th>
+                    <td>{{ object.contract_code|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "确认执行状态" %}</th>
+                    <td>{{ object.get_confirmation_status_display|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "起租日期" %}</th>
+                    <td>{{ object.billing_start_date|date:"Y年n月j日" }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "特殊情况说明" %}</th>
+                    <td>{{ object.special_notes|placeholder }}</td>
+                </tr>
+            </table>
+        </div>
     </div>
 
     {# 右侧列：标签、评论 #}

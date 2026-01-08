@@ -6,7 +6,27 @@ from rest_framework import serializers
 from netbox.api.serializers import NetBoxModelSerializer
 from tenancy.api.serializers import TenantSerializer
 
-from ..models import ServiceOrder, TaskDetail, ResourceLedger
+from ..models import ServiceOrder, TaskDetail, ResourceLedger, ResourceCheckResult
+
+
+
+class ResourceCheckResultSerializer(NetBoxModelSerializer):
+    """资源核查结果序列化器"""
+    
+    url = serializers.HyperlinkedIdentityField(
+        view_name='plugins-api:netbox_rms-api:resourcecheckresult-detail',
+    )
+    
+    # service_order ID 引用即可，因为通常是主表查子表
+    service_order = serializers.PrimaryKeyRelatedField(queryset=ServiceOrder.objects.all())
+
+    class Meta:
+        model = ResourceCheckResult
+        fields = [
+            'id', 'url', 'display', 'service_order',
+            'check_result', 'unavailable_reasons', 'description',
+            'tags', 'custom_fields', 'created', 'last_updated',
+        ]
 
 
 class ServiceOrderSerializer(NetBoxModelSerializer):
@@ -24,6 +44,9 @@ class ServiceOrderSerializer(NetBoxModelSerializer):
         allow_null=True,
     )
     
+    # 嵌套显示核查结果（只读）
+    check_result_obj = ResourceCheckResultSerializer(read_only=True)
+    
     task_count = serializers.IntegerField(read_only=True)
     resource_count = serializers.IntegerField(read_only=True)
     
@@ -31,11 +54,14 @@ class ServiceOrderSerializer(NetBoxModelSerializer):
         model = ServiceOrder
         fields = [
             'id', 'url', 'display',
-            'order_no', 'tenant', 'project_code', 'sales_contact',
+            'order_no', 'tenant', 'project_report_code', 'project_approval_code',
+            'contract_code', 'confirmation_status',
+            'sales_contact',
             'business_manager', 'internal_participant',
             'apply_date', 'deadline_date', 'billing_start_date',
-            'parent_order',
-            'check_type', 'check_data', 'check_result', 'unavailable_reasons',
+            'parent_order', 'special_notes',
+            'check_type', 'check_data',
+            'check_result_obj', # 输出对象
             'comments',
             'task_count', 'resource_count',
             'tags', 'custom_fields', 'created', 'last_updated',
@@ -56,24 +82,11 @@ class TaskDetailSerializer(NetBoxModelSerializer):
         model = TaskDetail
         fields = [
             'id', 'url', 'display', 'service_order',
-            # 基础信息
-            'task_type', 'lifecycle_status', 'execution_status',
-            # 技术参数
-            'service_type', 'bandwidth', 'protection', 'protection_type',
-            'interface_type', 'site_a', 'site_z',
-            # 运维参数
-            'circuit_id', 'dev_model_a', 'slot_a', 'port_a',
-            'dev_model_z', 'slot_z', 'port_z', 'config_status', 'test_status',
-            # 管线参数
-            'cable_core', 'odf_pos', 'jump_status', 'ext_resource', 'ext_contract',
-            # 托管参数
-            'device_brand', 'dimensions', 'power_rating', 'rack_u_pos', 'power_status',
-            # 变更参数
-            'change_types', 'old_value', 'new_value', 'ext_handle',
-            # 其他
+            'task_type', 'execution_status', 'execution_department', 'assignee',
+            'feedback_data',
             'comments', 'tags', 'custom_fields', 'created', 'last_updated',
         ]
-        brief_fields = ['id', 'url', 'display', 'task_type', 'lifecycle_status']
+        brief_fields = ['id', 'url', 'display', 'task_type']
 
 
 class ResourceLedgerSerializer(NetBoxModelSerializer):
@@ -90,7 +103,7 @@ class ResourceLedgerSerializer(NetBoxModelSerializer):
         fields = [
             'id', 'url', 'display', 'service_order',
             'resource_type', 'resource_id', 'resource_name',
-            'lifecycle_status', 'snapshot',
+            'snapshot',
             'comments', 'tags', 'custom_fields', 'created', 'last_updated',
         ]
-        brief_fields = ['id', 'url', 'display', 'resource_type', 'resource_id', 'lifecycle_status']
+        brief_fields = ['id', 'url', 'display', 'resource_type', 'resource_id']

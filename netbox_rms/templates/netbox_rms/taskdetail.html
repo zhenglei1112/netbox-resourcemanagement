@@ -14,9 +14,11 @@
 
 {% block content %}
 <div class="row mb-3">
-    <div class="col col-md-6">
-        <div class="card">
-            <h5 class="card-header">{% trans "基础信息" %}</h5>
+    {# Left Column: Task Info & Service Order Summary #}
+    <div class="col-md-6">
+        {# Task Information #}
+        <div class="card mb-3">
+            <h5 class="card-header">{% trans "任务信息" %}</h5>
             <table class="table table-hover attr-table">
                 <tr>
                     <th scope="row">{% trans "主工单" %}</th>
@@ -25,177 +27,293 @@
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row">{% trans "任务类型" %}</th>
-                    <td>{{ object.get_task_type_display }}</td>
+                    <th scope="row">{% trans "客户单位" %}</th>
+                    <td>
+                        {% if object.service_order.tenant %}
+                            <a href="{{ object.service_order.tenant.get_absolute_url }}">{{ object.service_order.tenant.name }}</a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
                 </tr>
                 <tr>
-                    <th scope="row">{% trans "生命周期状态" %}</th>
-                    <td>{% badge object.get_lifecycle_status_display bg_color=object.lifecycle_status %}</td>
+                    <th scope="row">{% trans "任务类型" %}</th>
+                    <td>
+                        <span class="badge bg-{{ object.get_task_type_color }}" style="color: #fff !important">{{ object.get_task_type_display }}</span>
+                    </td>
                 </tr>
                 <tr>
                     <th scope="row">{% trans "执行状态" %}</th>
-                    <td>{% badge object.get_execution_status_display bg_color=object.execution_status %}</td>
+                    <td>
+                        <span class="badge bg-{{ object.get_execution_status_color }}" style="color: #fff !important">{{ object.get_execution_status_display }}</span>
+                    </td>
                 </tr>
+                <tr>
+                    <th scope="row">{% trans "执行部门" %}</th>
+                    <td>
+                        {% if object.execution_department %}
+                            <span class="badge bg-{{ object.get_execution_department_color }}" style="color: #fff !important">{{ object.get_execution_department_display }}</span>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "执行人" %}</th>
+                    <td>
+                        {% if object.assignee %}
+                            {{ object.assignee.username }}
+                        {% else %}
+                            <span class="text-muted">{% trans "未分配" %}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        {# Order Summary #}
+        <div class="card mb-3">
+            <h5 class="card-header">{% trans "工单摘要" %}</h5>
+            <table class="table table-hover attr-table">
+                <tr>
+                    <th scope="row">{% trans "申请时间" %}</th>
+                    <td>{% if object.service_order.apply_date %}{{ object.service_order.apply_date|date:"Y年n月j日" }}{% else %}{{ ''|placeholder }}{% endif %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "计划开通时间" %}</th>
+                    <td>{% if object.service_order.deadline_date %}{{ object.service_order.deadline_date|date:"Y年n月j日" }}{% else %}{{ ''|placeholder }}{% endif %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "起租日期" %}</th>
+                    <td>{% if object.service_order.billing_start_date %}{{ object.service_order.billing_start_date|date:"Y年n月j日" }}{% else %}{{ ''|placeholder }}{% endif %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "销售负责人" %}</th>
+                    <td>{{ object.service_order.sales_contact|placeholder }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "业务类别" %}</th>
+                    <td>
+                        <span class="badge bg-{{ object.service_order.get_check_type_color }}" style="color: #fff !important">{{ object.service_order.get_check_type_display }}</span>
+                    </td>
+                </tr>
+                
+                {# 详细核查信息 #}
+                {% with data=object.service_order.check_data %}
+                    {% if object.service_order.check_type == 'transmission' or object.service_order.check_type == 'fiber' %}
+                        <tr>
+                            <th scope="row">{% trans "A端站点" %}</th>
+                            <td>{{ data.site_a_name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Z端站点" %}</th>
+                            <td>{{ data.site_z_name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "数量" %}</th>
+                            <td>{{ data.quantity|default:"-" }}</td>
+                        </tr>
+                        {% if object.service_order.check_type == 'transmission' %}
+                        <tr>
+                            <th scope="row">{% trans "带宽" %}</th>
+                            <td>{{ data.bandwidth|default:"-" }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th scope="row">{% trans "接口类型" %}</th>
+                            <td>{{ object.service_order.interface_type_display|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "需要保护" %}</th>
+                            <td>{{ data.needs_protection|yesno:"是,否" }}</td>
+                        </tr>
+                    {% elif object.service_order.check_type == 'colocation' %}
+                        <tr>
+                            <th scope="row">{% trans "机房站点" %}</th>
+                            <td>{{ data.site_name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "出局纤芯数" %}</th>
+                            <td>{{ data.egress_fiber_cores|default:"-" }}</td>
+                        </tr>
+                        {% if data.devices %}
+                        <tr>
+                            <th scope="row" class="align-middle">{% trans "托管设备" %}</th>
+                            <td class="p-0">
+                                <table class="table table-sm table-striped mb-0 small text-muted" style="background-color: transparent;">
+                                    <thead>
+                                        <tr>
+                                            <th>{% trans "类型" %}</th>
+                                            <th>{% trans "型号" %}</th>
+                                            <th>{% trans "尺寸(L*W*H)" %}</th>
+                                            <th>{% trans "U数" %}</th>
+                                            <th>{% trans "能耗(W)" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for d in data.devices %}
+                                        <tr>
+                                            <td>{{ d.device_type|default:"-" }}</td>
+                                            <td>{{ d.model|default:"-" }}</td>
+                                            <td>
+                                                {% if d.length or d.width or d.height %}
+                                                {{ d.length|default:0 }}*{{ d.width|default:0 }}*{{ d.height|default:0 }}
+                                                {% else %}-{% endif %}
+                                            </td>
+                                            <td>{{ d.rack_units|default:"-" }}</td>
+                                            <td>{{ d.power_consumption|default:"-" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endif %}
+                {% endwith %}
+
+                {% if object.task_type == 'change' %}
+                <tr>
+                    <th scope="row">{% trans "关联原单号" %}</th>
+                    <td>
+                        {% if object.service_order.parent_order %}
+                            <a href="{{ object.service_order.parent_order.get_absolute_url }}">
+                                {{ object.service_order.parent_order.order_no }}
+                            </a>
+                        {% else %}
+                            {{ ''|placeholder }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
             </table>
         </div>
     </div>
-    <div class="col col-md-6">
-        <div class="card">
-            <h5 class="card-header">{% trans "技术参数" %}</h5>
-            <table class="table table-hover attr-table">
-                <tr>
-                    <th scope="row">{% trans "业务类型" %}</th>
-                    <td>{{ object.get_service_type_display|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "带宽" %}</th>
-                    <td>{{ object.bandwidth|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "是否保护" %}</th>
-                    <td>{% if object.protection %}{% trans "是" %}{% else %}{% trans "否" %}{% endif %}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "接口类型" %}</th>
-                    <td>{{ object.get_interface_type_display|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "A端站点" %}</th>
-                    <td>{{ object.site_a|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "Z端站点" %}</th>
-                    <td>{{ object.site_z|placeholder }}</td>
-                </tr>
-            </table>
+    
+    {# Right Column: Execution Feedback #}
+    <div class="col-md-6">
+        {% with fb=object.feedback_data %}
+        {# Execution Feedback - Flush Style #}
+        <div class="card mb-3">
+          <h5 class="card-header">执行反馈信息</h5>
+          <table class="table table-hover attr-table">
+            <tr>
+              <th scope="row" style="width: 30%;">配置日期</th>
+              <td>{{ fb.config_date|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th scope="row">测试日期</th>
+              <td>{{ fb.test_date|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th scope="row">备注</th>
+              <td>{{ fb.remarks|default:"-" }}</td>
+            </tr>
+
+            <!-- 传输反馈 -->
+            {% if fb.transmission and object.service_order.check_type == 'transmission' %}
+            <tr>
+              <th scope="row">增加板卡</th>
+              <td>
+                {% if fb.transmission.is_card_added %}是 ({{ fb.transmission.card_add_method }} - {{ fb.transmission.card_add_desc }}){% else %}否{% endif %}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">增加模块</th>
+              <td>
+                {% if fb.transmission.is_module_added %}是 ({{ fb.transmission.module_add_method }} - {{ fb.transmission.module_add_desc }}){% else %}否{% endif %}
+              </td>
+            </tr>
+            {% if fb.transmission.circuits %}
+            <tr>
+                 <th scope="row" class="align-middle">电路信息</th>
+                 <td class="p-0">
+                    <table class="table table-sm table-striped mb-0 small text-muted" style="background-color: transparent;">
+                        <thead>
+                            <tr>
+                                <th>编号</th>
+                                <th>带宽</th>
+                                <th>A端(站点/设备/卡/口)</th>
+                                <th>Z端(站点/设备/卡/口)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in fb.transmission.circuits %}
+                            <tr>
+                                <td>{{ c.code }}</td>
+                                <td>{{ c.bandwidth }}</td>
+                                <td>{{ c.site_a }}/{{ c.model_a }}/{{ c.card_a }}/{{ c.port_a }}</td>
+                                <td>{{ c.site_z }}/{{ c.model_z }}/{{ c.card_z }}/{{ c.port_z }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                 </td>
+            </tr>
+            {% endif %}
+            
+            <!-- 光缆反馈 -->
+            {% elif fb.fiber and object.service_order.check_type == 'fiber' %}
+            <tr>
+                <th scope="row">纤芯数量</th>
+                <td>{{ fb.fiber.core_count }}</td>
+            </tr>
+            <tr>
+                <th scope="row">A端信息</th>
+                <td>{{ fb.fiber.site_a_name }} <br> <small class="text-muted">{{ fb.fiber.odf_a }} | {{ fb.fiber.desc_a }}</small></td>
+            </tr>
+            <tr>
+                <th scope="row">Z端信息</th>
+                <td>{{ fb.fiber.site_z_name }} <br> <small class="text-muted">{{ fb.fiber.odf_z }} | {{ fb.fiber.desc_z }}</small></td>
+            </tr>
+
+            <!-- 托管反馈 -->
+            {% elif fb.colocation and object.service_order.check_type == 'colocation' %}
+            <tr>
+                <th scope="row">机房站点</th>
+                <td>{{ fb.colocation.site_name }}</td>
+            </tr>
+            <tr>
+                <th scope="row">出局缆</th>
+                <td>{{ fb.colocation.cable_count }}条 (ODF: {{ fb.colocation.cable_odf }})</td>
+            </tr>
+            {% if fb.colocation.devices %}
+            <tr>
+                <th scope="row" class="align-middle">托管设备</th>
+                <td class="p-0">
+                    <table class="table table-sm table-striped mb-0 small text-muted" style="background-color: transparent;">
+                        <thead>
+                            <tr>
+                                <th>{% trans "设备型号" %}</th>
+                                <th>{% trans "机柜" %}</th>
+                                <th>{% trans "U位" %}</th>
+                                <th>{% trans "接电" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in fb.colocation.devices %}
+                            <tr>
+                                <td>{{ d.model }}</td>
+                                <td>{{ d.cabinet }}</td>
+                                <td>{{ d.unit }}</td>
+                                <td>{{ d.power }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+             {% endif %}
+            {% endif %}
+          </table>
+
+
+          
         </div>
+        {% endwith %}
     </div>
 </div>
 
-<div class="row mb-3">
-    <div class="col col-md-6">
-        <div class="card">
-            <h5 class="card-header">{% trans "运维实施参数" %}</h5>
-            <table class="table table-hover attr-table">
-                <tr>
-                    <th scope="row">{% trans "电路编号" %}</th>
-                    <td>{{ object.circuit_id|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "A端设备" %}</th>
-                    <td>{{ object.dev_model_a|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "A端槽位/端口" %}</th>
-                    <td>{{ object.slot_a|placeholder }} / {{ object.port_a|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "Z端设备" %}</th>
-                    <td>{{ object.dev_model_z|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "Z端槽位/端口" %}</th>
-                    <td>{{ object.slot_z|placeholder }} / {{ object.port_z|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "配置完成" %}</th>
-                    <td>{% if object.config_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "测试完成" %}</th>
-                    <td>{% if object.test_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-    <div class="col col-md-6">
-        <div class="card">
-            <h5 class="card-header">{% trans "管线实施参数" %}</h5>
-            <table class="table table-hover attr-table">
-                <tr>
-                    <th scope="row">{% trans "出局缆芯数" %}</th>
-                    <td>{{ object.cable_core|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "ODF位置" %}</th>
-                    <td>{{ object.odf_pos|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "跳接完成" %}</th>
-                    <td>{% if object.jump_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "外购资源" %}</th>
-                    <td>{% if object.ext_resource %}{% trans "是" %}{% else %}{% trans "否" %}{% endif %}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "外购合同" %}</th>
-                    <td>{{ object.ext_contract|placeholder }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-</div>
-
-{% if object.task_type == 'hosting' %}
-<div class="row mb-3">
-    <div class="col col-md-6">
-        <div class="card">
-            <h5 class="card-header">{% trans "设备托管参数" %}</h5>
-            <table class="table table-hover attr-table">
-                <tr>
-                    <th scope="row">{% trans "设备类型" %}</th>
-                    <td>{{ object.device_brand|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "尺寸" %}</th>
-                    <td>{{ object.dimensions|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "功耗" %}</th>
-                    <td>{{ object.power_rating|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "机柜U位" %}</th>
-                    <td>{{ object.rack_u_pos|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "加电完成" %}</th>
-                    <td>{% if object.power_status %}{% checkmark True %}{% else %}{% checkmark False %}{% endif %}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{% if object.task_type == 'change' %}
-<div class="row mb-3">
-    <div class="col col-md-12">
-        <div class="card">
-            <h5 class="card-header">{% trans "变更管理参数" %}</h5>
-            <table class="table table-hover attr-table">
-                <tr>
-                    <th scope="row">{% trans "变更类型" %}</th>
-                    <td>{{ object.change_types|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "原状态" %}</th>
-                    <td>{{ object.old_value|linebreaksbr|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "变更后" %}</th>
-                    <td>{{ object.new_value|linebreaksbr|placeholder }}</td>
-                </tr>
-                <tr>
-                    <th scope="row">{% trans "外购处理" %}</th>
-                    <td>{{ object.get_ext_handle_display|placeholder }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 {% if object.comments %}
 <div class="row mb-3">

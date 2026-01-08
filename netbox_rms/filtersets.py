@@ -9,12 +9,12 @@ from django.utils.translation import gettext_lazy as _
 
 from netbox.filtersets import NetBoxModelFilterSet
 
-from .models import ServiceOrder, TaskDetail, ResourceLedger
+from .models import ServiceOrder, TaskDetail, ResourceLedger, ResourceCheckResult
 from tenancy.models import Tenant
 from .choices import (
     TaskTypeChoices,
-    LifecycleStatusChoices,
     ExecutionStatusChoices,
+    ExecutionDepartmentChoices,
     ResourceTypeChoices,
 )
 
@@ -38,9 +38,9 @@ class ServiceOrderFilterSet(NetBoxModelFilterSet):
         label=_('客户单位'),
     )
     
-    project_code = django_filters.CharFilter(
+    project_report_code = django_filters.CharFilter(
         lookup_expr='icontains',
-        label=_('项目编号'),
+        label=_('项目报备编号'),
     )
     
     sales_contact = django_filters.CharFilter(
@@ -72,7 +72,7 @@ class ServiceOrderFilterSet(NetBoxModelFilterSet):
     
     class Meta:
         model = ServiceOrder
-        fields = ['id', 'order_no', 'tenant_id', 'project_code', 'sales_contact', 'business_manager']
+        fields = ['id', 'order_no', 'tenant_id', 'project_report_code', 'sales_contact', 'business_manager']
     
     def search(self, queryset, name, value):
         if not value.strip():
@@ -80,7 +80,7 @@ class ServiceOrderFilterSet(NetBoxModelFilterSet):
         return queryset.filter(
             Q(order_no__icontains=value) |
             Q(tenant__name__icontains=value) |
-            Q(project_code__icontains=value) |
+            Q(project_report_code__icontains=value) |
             Q(sales_contact__icontains=value) |
             Q(business_manager__icontains=value)
         )
@@ -109,9 +109,10 @@ class TaskDetailFilterSet(NetBoxModelFilterSet):
         label=_('任务类型'),
     )
     
-    lifecycle_status = django_filters.MultipleChoiceFilter(
-        choices=LifecycleStatusChoices,
-        label=_('生命周期状态'),
+    
+    execution_department = django_filters.MultipleChoiceFilter(
+        choices=ExecutionDepartmentChoices,
+        label=_('执行部门'),
     )
     
     execution_status = django_filters.MultipleChoiceFilter(
@@ -119,40 +120,20 @@ class TaskDetailFilterSet(NetBoxModelFilterSet):
         label=_('执行状态'),
     )
     
-    site_a = django_filters.CharFilter(
-        lookup_expr='icontains',
-        label=_('A端站点'),
-    )
-    
-    site_z = django_filters.CharFilter(
-        lookup_expr='icontains',
-        label=_('Z端站点'),
-    )
-    
-    circuit_id = django_filters.CharFilter(
-        lookup_expr='icontains',
-        label=_('电路编号'),
-    )
-    
-    ext_resource = django_filters.BooleanFilter(
-        label=_('外购资源'),
-    )
+
     
     class Meta:
         model = TaskDetail
         fields = [
-            'id', 'service_order', 'task_type', 'lifecycle_status',
-            'execution_status', 'site_a', 'site_z', 'circuit_id',
+            'id', 'service_order', 'task_type',
+            'execution_status', 'execution_department',
         ]
     
     def search(self, queryset, name, value):
         if not value.strip():
             return queryset
         return queryset.filter(
-            Q(service_order__order_no__icontains=value) |
-            Q(site_a__icontains=value) |
-            Q(site_z__icontains=value) |
-            Q(circuit_id__icontains=value)
+            Q(service_order__order_no__icontains=value)
         )
 
 
@@ -174,11 +155,6 @@ class ResourceLedgerFilterSet(NetBoxModelFilterSet):
         label=_('资源标识'),
     )
     
-    lifecycle_status = django_filters.MultipleChoiceFilter(
-        choices=LifecycleStatusChoices,
-        label=_('生命周期状态'),
-    )
-    
     service_order_id = django_filters.ModelChoiceFilter(
         queryset=ServiceOrder.objects.all(),
         label=_('来源工单'),
@@ -186,7 +162,7 @@ class ResourceLedgerFilterSet(NetBoxModelFilterSet):
     
     class Meta:
         model = ResourceLedger
-        fields = ['id', 'resource_type', 'resource_id', 'lifecycle_status', 'service_order']
+        fields = ['id', 'resource_type', 'resource_id', 'service_order']
     
     def search(self, queryset, name, value):
         if not value.strip():
@@ -195,4 +171,36 @@ class ResourceLedgerFilterSet(NetBoxModelFilterSet):
             Q(resource_id__icontains=value) |
             Q(resource_name__icontains=value) |
             Q(service_order__order_no__icontains=value)
+        )
+
+
+class ResourceCheckResultFilterSet(NetBoxModelFilterSet):
+    """资源核查结果过滤器集"""
+    
+    q = django_filters.CharFilter(
+        method='search',
+        label=_('搜索'),
+    )
+    
+    service_order_id = django_filters.ModelChoiceFilter(
+        queryset=ServiceOrder.objects.all(),
+        label=_('所属工单'),
+    )
+    
+    check_result = django_filters.CharFilter(
+        lookup_expr='icontains',
+        label=_('核查结果'),
+    )
+
+    class Meta:
+        model = ResourceCheckResult
+        fields = ['id', 'service_order', 'check_result']
+    
+    def search(self, queryset, name, value):
+        if not value.strip():
+            return queryset
+        return queryset.filter(
+            Q(service_order__order_no__icontains=value) |
+            Q(check_result__icontains=value) |
+            Q(description__icontains=value)
         )

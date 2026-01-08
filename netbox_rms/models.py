@@ -7,17 +7,19 @@ NetBox RMS 数据模型
 - ResourceLedger: 资源台账
 """
 from django.db import models
+from django.conf import settings
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from netbox.models import NetBoxModel
 from tenancy.models import Tenant
+from dcim.models import Site
 
 from .choices import (
     TaskTypeChoices,
-    LifecycleStatusChoices,
     ExecutionStatusChoices,
+    ExecutionDepartmentChoices,
     ServiceTypeChoices,
     InterfaceTypeChoices,
     ResourceTypeChoices,
@@ -25,6 +27,7 @@ from .choices import (
     ExternalHandleChoices,
     InternalParticipantChoices,
     ResourceCheckTypeChoices,
+    ConfirmationStatusChoices,
 )
 
 
@@ -51,10 +54,22 @@ class ServiceOrder(NetBoxModel):
         help_text=_('从 NetBox 租户中选择'),
     )
     
-    project_code = models.CharField(
-        max_length=100,
-        verbose_name=_('项目/合同编号'),
-        help_text=_('支持双号并行，如 WLGSXS2409001'),
+    project_report_code = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('项目报备编号'),
+    )
+
+    project_approval_code = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('立项编号'),
+    )
+
+    contract_code = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('合同编号'),
     )
     
     sales_contact = models.CharField(
@@ -87,10 +102,25 @@ class ServiceOrder(NetBoxModel):
     )
     
     billing_start_date = models.DateField(
-        blank=True,
         null=True,
-        verbose_name=_('计费起始日期'),
-        help_text=_('财务结算依据，来源于核查单确认栏'),
+        blank=True,
+        verbose_name=_('起租日期'),
+    )
+
+    # 确认执行状态
+    confirmation_status = models.CharField(
+        max_length=30,
+        choices=ConfirmationStatusChoices,
+        blank=True,
+        verbose_name=_('确认执行状态'),
+    )
+
+
+
+    # 特殊情况说明
+    special_notes = models.TextField(
+        blank=True,
+        verbose_name=_('特殊情况说明'),
     )
     
     # 变更追溯
@@ -120,18 +150,7 @@ class ServiceOrder(NetBoxModel):
         help_text=_('存储类型特定的核查属性'),
     )
     
-    check_result = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('核查结果'),
-    )
-    
-    unavailable_reasons = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name=_('不具备原因'),
-        help_text=_('托管业务不具备时的原因列表'),
-    )
+
     
     # 备注
     comments = models.TextField(
@@ -150,20 +169,31 @@ class ServiceOrder(NetBoxModel):
         return self.check_data if self.check_data else {}
     
     @property
+    def check_result(self):
+        """兼容性属性：获取关联的核查结果"""
+        if hasattr(self, 'check_result_obj'):
+            return self.check_result_obj.check_result
+        return ''
+
+    @property
     def safe_unavailable_reasons(self):
         """安全获取 unavailable_reasons，确保返回列表而非 None"""
-        return self.unavailable_reasons if self.unavailable_reasons else []
+        if hasattr(self, 'check_result_obj'):
+            reasons = self.check_result_obj.unavailable_reasons
+            return reasons if reasons else []
+        return []
     
     @property
     def check_result_display(self):
         """获取核查结果的中文显示"""
+        result = self.check_result
         result_mapping = {
             'available': '具备',
             'unavailable': '不具备',
             'need_module': '需增加模块',
             'need_card': '需增加板卡',
         }
-        return result_mapping.get(self.check_result, self.check_result or '')
+        return result_mapping.get(result, result or '')
     
     @property
     def interface_type_display(self):
@@ -176,6 +206,51 @@ class ServiceOrder(NetBoxModel):
         }
         return type_mapping.get(interface_type, interface_type or '')
     
+    @property
+    def get_interface_type_color(self):
+        """获取接口类型颜色 class"""
+        data = self.safe_check_data
+        interface_type = data.get('interface_type', '')
+        return InterfaceTypeChoices.colors.get(interface_type, 'secondary')
+    
+    @property
+    def get_check_type_color(self):
+        """获取业务类别颜色 class"""
+        return ResourceCheckTypeChoices.colors.get(self.check_type, 'secondary')
+
+    @property
+    def site_a_object(self):
+        """获取 A 端站点对象"""
+        site_id = self.safe_check_data.get('site_a_id')
+        if site_id:
+            try:
+                return Site.objects.get(pk=site_id)
+            except Site.DoesNotExist:
+                pass
+        return None
+
+    @property
+    def site_z_object(self):
+        """获取 Z 端站点对象"""
+        site_id = self.safe_check_data.get('site_z_id')
+        if site_id:
+            try:
+                return Site.objects.get(pk=site_id)
+            except Site.DoesNotExist:
+                pass
+        return None
+
+    @property
+    def colocation_site_object(self):
+        """获取托管业务机房对象"""
+        site_id = self.safe_check_data.get('site_id')
+        if site_id:
+            try:
+                return Site.objects.get(pk=site_id)
+            except Site.DoesNotExist:
+                pass
+        return None
+    
     def __str__(self) -> str:
         return f"{self.order_no} - {self.tenant.name}"
     
@@ -187,10 +262,10 @@ class TaskDetail(NetBoxModel):
     """
     执行任务详情模型
     
-    根据 task_type 区分显示不同的字段组：
-    - 核查/调配: 技术参数 + 运维/管线参数
-    - 变更: 变更管理参数
-    - 托管: 设备托管参数
+    支持三种业务场景：
+    - 入网/开通: 新业务接入和资源分配
+    - 变更: 已有业务的调整和修改
+    - 退网/拆机: 业务下线和资源回收
     """
     
     # 关联主工单
@@ -205,18 +280,11 @@ class TaskDetail(NetBoxModel):
     task_type = models.CharField(
         max_length=50,
         choices=TaskTypeChoices,
-        default=TaskTypeChoices.ALLOCATION,
+        default=TaskTypeChoices.ACTIVATION,
         verbose_name=_('任务类型'),
     )
     
-    # 双层状态
-    lifecycle_status = models.CharField(
-        max_length=50,
-        choices=LifecycleStatusChoices,
-        default=LifecycleStatusChoices.DRAFT,
-        verbose_name=_('生命周期状态'),
-    )
-    
+    # 执行状态
     execution_status = models.CharField(
         max_length=50,
         choices=ExecutionStatusChoices,
@@ -224,197 +292,44 @@ class TaskDetail(NetBoxModel):
         verbose_name=_('执行状态'),
     )
     
-    # ========== 场景 1: 技术参数 ==========
-    service_type = models.CharField(
+    # 执行部门
+    execution_department = models.CharField(
         max_length=50,
-        choices=ServiceTypeChoices,
+        choices=ExecutionDepartmentChoices,
         blank=True,
-        verbose_name=_('业务类型'),
+        verbose_name=_('执行部门'),
+        help_text=_('负责执行此任务的部门'),
     )
     
-    bandwidth = models.CharField(
-        max_length=50,
+    feedback_data = models.JSONField(
+        default=dict,
         blank=True,
-        verbose_name=_('带宽数量'),
-        help_text=_('如：1 (2G)'),
+        verbose_name=_('执行反馈信息'),
+        help_text=_('存储执行后的具体反馈数据'),
     )
     
-    protection = models.BooleanField(
-        default=False,
-        verbose_name=_('是否保护'),
-    )
-    
-    protection_type = models.CharField(
-        max_length=50,
+    assignee = models.ForeignKey(
+        to=settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='rms_tasks',
         blank=True,
-        verbose_name=_('保护类型'),
-        help_text=_('复用段/通道保护'),
+        null=True,
+        verbose_name=_('执行人'),
     )
+
+    def get_task_type_color(self):
+        """获取任务类型颜色"""
+        return TaskTypeChoices.colors.get(self.task_type, 'secondary')
     
-    interface_type = models.CharField(
-        max_length=50,
-        choices=InterfaceTypeChoices,
-        blank=True,
-        verbose_name=_('接口类型'),
-    )
+    def get_execution_status_color(self):
+        """获取执行状态颜色"""
+        return ExecutionStatusChoices.colors.get(self.execution_status, 'secondary')
     
-    site_a = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name=_('A端接入站点'),
-    )
+    def get_execution_department_color(self):
+        """获取执行部门颜色"""
+        return ExecutionDepartmentChoices.colors.get(self.execution_department, 'secondary')
     
-    site_z = models.CharField(
-        max_length=255,
-        blank=True,
-        verbose_name=_('Z端接入站点'),
-    )
-    
-    # ========== 场景 2: 运维实施参数 ==========
-    circuit_id = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('电路分配编号'),
-        help_text=_('核心逻辑ID，如 256763/02N0690SC'),
-    )
-    
-    dev_model_a = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('A端设备型号'),
-        help_text=_('如 OSN9800 西宁'),
-    )
-    
-    slot_a = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('A端板卡/槽位'),
-        help_text=_('兼容 12-TnO 或 T220/32 格式'),
-    )
-    
-    port_a = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('A端端口'),
-    )
-    
-    dev_model_z = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('Z端设备型号'),
-    )
-    
-    slot_z = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('Z端板卡/槽位'),
-    )
-    
-    port_z = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('Z端端口'),
-    )
-    
-    config_status = models.BooleanField(
-        default=False,
-        verbose_name=_('业务配置完成'),
-    )
-    
-    test_status = models.BooleanField(
-        default=False,
-        verbose_name=_('连通测试完成'),
-    )
-    
-    # ========== 场景 3: 管线实施参数 ==========
-    cable_core = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('出局缆芯数'),
-        help_text=_('如：出局缆4芯'),
-    )
-    
-    odf_pos = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('ODF位置'),
-    )
-    
-    jump_status = models.BooleanField(
-        default=False,
-        verbose_name=_('两端跳接完成'),
-    )
-    
-    ext_resource = models.BooleanField(
-        default=False,
-        verbose_name=_('外购资源'),
-    )
-    
-    ext_contract = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('外购合同编号'),
-        help_text=_('若有外购资源必填'),
-    )
-    
-    # ========== 场景 4: 设备托管参数 ==========
-    device_brand = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('设备品牌/类型'),
-        help_text=_('如：交换机'),
-    )
-    
-    dimensions = models.CharField(
-        max_length=100,
-        blank=True,
-        verbose_name=_('尺寸 (W*D*H)'),
-    )
-    
-    power_rating = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('功耗'),
-    )
-    
-    rack_u_pos = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name=_('机柜U位'),
-        help_text=_('如 U10-U12'),
-    )
-    
-    power_status = models.BooleanField(
-        default=False,
-        verbose_name=_('安装加电完成'),
-    )
-    
-    # ========== 场景 5: 变更管理参数 ==========
-    change_types = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name=_('变更类型'),
-        help_text=_('多选：带宽/开撤/方向/保护/托管'),
-    )
-    
-    old_value = models.TextField(
-        blank=True,
-        verbose_name=_('原状态'),
-        help_text=_('如：原AZ端：14-4'),
-    )
-    
-    new_value = models.TextField(
-        blank=True,
-        verbose_name=_('变更后状态'),
-        help_text=_('如：变更后AZ端：14-10'),
-    )
-    
-    ext_handle = models.CharField(
-        max_length=50,
-        choices=ExternalHandleChoices,
-        blank=True,
-        verbose_name=_('外购资源处理'),
-    )
+
     
     # 备注
     comments = models.TextField(
@@ -436,12 +351,6 @@ class TaskDetail(NetBoxModel):
     def clean(self) -> None:
         """业务逻辑校验"""
         super().clean()
-        
-        # 外购资源联动校验
-        if self.ext_resource and not self.ext_contract:
-            raise ValidationError({
-                'ext_contract': _('勾选外购资源时，外购合同编号必填'),
-            })
         
         # 变更单必须关联原单号
         if self.task_type == TaskTypeChoices.CHANGE:
@@ -485,14 +394,6 @@ class ResourceLedger(NetBoxModel):
         verbose_name=_('资源名称'),
     )
     
-    # 生命周期状态
-    lifecycle_status = models.CharField(
-        max_length=50,
-        choices=LifecycleStatusChoices,
-        default=LifecycleStatusChoices.ACTIVE,
-        verbose_name=_('生命周期状态'),
-    )
-    
     # 资源快照 (JSON 存储详细参数)
     snapshot = models.JSONField(
         default=dict,
@@ -518,14 +419,51 @@ class ResourceLedger(NetBoxModel):
     
     def get_absolute_url(self) -> str:
         return reverse('plugins:netbox_rms:resourceledger', args=[self.pk])
+
+
+class ResourceCheckResult(NetBoxModel):
+    """
+    资源核查结果模型
     
-    def get_status_color(self) -> str:
-        """根据状态返回高亮颜色类"""
-        color_map = {
-            LifecycleStatusChoices.DRAFT: 'secondary',
-            LifecycleStatusChoices.RESERVED: 'info',
-            LifecycleStatusChoices.ACTIVE: 'success',
-            LifecycleStatusChoices.SUSPENDED: 'warning',
-            LifecycleStatusChoices.TERMINATED: 'danger',
-        }
-        return color_map.get(self.lifecycle_status, 'secondary')
+    独立模型以实现对象级权限控制。
+    """
+    service_order = models.OneToOneField(
+        to='ServiceOrder',
+        on_delete=models.CASCADE,
+        related_name='check_result_obj',
+        verbose_name=_('所属工单'),
+    )
+    
+    check_result = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name=_('核查结果'),
+    )
+    
+    unavailable_reasons = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_('不具备原因'),
+        help_text=_('不具备时的原因列表'),
+    )
+    
+    description = models.TextField(
+        blank=True,
+        verbose_name=_('说明'),
+    )
+    
+    class Meta:
+        ordering = ['-pk']
+        verbose_name = _('资源核查结果')
+        verbose_name_plural = _('资源核查结果')
+        
+    def __str__(self) -> str:
+        return f"Check Result for {self.service_order}"
+    
+    def get_absolute_url(self) -> str:
+        # 暂时返回主工单 URL，或者后续单独的 Edit URL
+        return self.service_order.get_absolute_url()
+    
+
+
+    

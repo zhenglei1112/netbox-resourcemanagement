@@ -8,14 +8,16 @@ from django.utils.translation import gettext_lazy as _
 
 from netbox.views import generic
 
-from .models import ServiceOrder, TaskDetail, ResourceLedger
+from .models import ServiceOrder, TaskDetail, ResourceLedger, ResourceCheckResult
 from .tables import ServiceOrderTable, TaskDetailTable, ResourceLedgerTable
 from .filtersets import ServiceOrderFilterSet, TaskDetailFilterSet, ResourceLedgerFilterSet
 from .forms import (
     ServiceOrderForm, ServiceOrderFilterForm,
     TaskDetailForm, TaskDetailFilterForm,
     ResourceLedgerForm, ResourceLedgerFilterForm,
+    ResourceCheckResultForm, ResourceCheckResultFilterForm,
 )
+from .choices import BandwidthChoices
 
 
 # =============================================================================
@@ -105,6 +107,28 @@ class TaskDetailEditView(generic.ObjectEditView):
     
     queryset = TaskDetail.objects.all()
     form = TaskDetailForm
+    template_name = 'netbox_rms/taskdetail_edit.html'
+
+    def get_extra_context(self, request, instance):
+        from .choices import BandwidthChoices
+        from .models import ServiceOrder
+        
+        ctx = {
+            'bandwidth_choices': BandwidthChoices.CHOICES
+        }
+        
+        # 获取 check_type 用于前端控制显示
+        if instance and instance.pk and instance.service_order:
+             ctx['check_type'] = instance.service_order.check_type
+        # 处理新建时通过 URL 参数传递的 service_order
+        elif request.GET.get('service_order'):
+             try:
+                 so = ServiceOrder.objects.get(pk=request.GET.get('service_order'))
+                 ctx['check_type'] = so.check_type
+             except (ServiceOrder.DoesNotExist, ValueError):
+                 pass
+                 
+        return ctx
 
 
 class TaskDetailDeleteView(generic.ObjectDeleteView):
@@ -153,9 +177,27 @@ class ResourceLedgerDeleteView(generic.ObjectDeleteView):
     queryset = ResourceLedger.objects.all()
 
 
+
 class ResourceLedgerBulkDeleteView(generic.BulkDeleteView):
     """资源台账批量删除视图"""
-    
+
     queryset = ResourceLedger.objects.all()
     filterset = ResourceLedgerFilterSet
     table = ResourceLedgerTable
+
+
+# =============================================================================
+# ResourceCheckResult 视图
+# =============================================================================
+
+class ResourceCheckResultEditView(generic.ObjectEditView):
+    """资源核查结果编辑视图"""
+    
+    queryset = ResourceCheckResult.objects.all()
+    form = ResourceCheckResultForm
+
+
+class ResourceCheckResultDeleteView(generic.ObjectDeleteView):
+    """资源核查结果删除视图"""
+    
+    queryset = ResourceCheckResult.objects.all()

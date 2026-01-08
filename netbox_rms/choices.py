@@ -10,34 +10,14 @@ from utilities.choices import ChoiceSet
 class TaskTypeChoices(ChoiceSet):
     """任务类型选择项"""
     
-    VERIFICATION = 'verification'       # 资源核查
-    ALLOCATION = 'allocation'           # 资源调配
-    CHANGE = 'change'                   # 资源变更
-    HOSTING = 'hosting'                 # 设备托管
+    ACTIVATION = 'activation'           # 入网/开通
+    CHANGE = 'change'                   # 变更
+    DEACTIVATION = 'deactivation'       # 退网/拆机
     
     CHOICES = [
-        (VERIFICATION, _('资源核查')),
-        (ALLOCATION, _('资源调配')),
-        (CHANGE, _('资源变更')),
-        (HOSTING, _('设备托管')),
-    ]
-
-
-class LifecycleStatusChoices(ChoiceSet):
-    """生命周期状态选择项"""
-    
-    DRAFT = 'draft'                     # 草稿
-    RESERVED = 'reserved'               # 预占
-    ACTIVE = 'active'                   # 在用/计费
-    SUSPENDED = 'suspended'             # 暂停
-    TERMINATED = 'terminated'           # 已拆机
-    
-    CHOICES = [
-        (DRAFT, _('草稿'), 'gray'),
-        (RESERVED, _('预占'), 'blue'),
-        (ACTIVE, _('在用'), 'green'),
-        (SUSPENDED, _('暂停'), 'orange'),
-        (TERMINATED, _('已拆机'), 'red'),
+        (ACTIVATION, _('入网/开通'), 'green'),
+        (CHANGE, _('变更'), 'yellow'),
+        (DEACTIVATION, _('退网/拆机'), 'red'),
     ]
 
 
@@ -53,7 +33,19 @@ class ExecutionStatusChoices(ChoiceSet):
         (PENDING, _('待实施'), 'gray'),
         (PATCHED, _('已跳接'), 'blue'),
         (CONFIGURED, _('已配置'), 'cyan'),
-        (CONNECTED, _('已连通'), 'green'),
+        (CONNECTED, _('已连通'), 'teal'),
+    ]
+
+
+class ExecutionDepartmentChoices(ChoiceSet):
+    """执行部门选择项"""
+    
+    PIPELINE = 'pipeline'               # 管线部
+    OPERATION = 'operation'             # 运维部
+    
+    CHOICES = [
+        (PIPELINE, _('管线部'), 'orange'),
+        (OPERATION, _('运维部'), 'purple'),
     ]
 
 
@@ -82,8 +74,8 @@ class InterfaceTypeChoices(ChoiceSet):
     OPTICAL = 'optical'
     
     CHOICES = [
-        (ELECTRICAL, _('电')),
-        (OPTICAL, _('光')),
+        (ELECTRICAL, _('电'), 'cyan'),
+        (OPTICAL, _('光'), 'purple'),
     ]
 
 
@@ -149,6 +141,20 @@ class InternalParticipantChoices(ChoiceSet):
     ]
 
 
+class ConfirmationStatusChoices(ChoiceSet):
+    """确认执行状态"""
+    
+    EXECUTION_BILLING = 'execution_billing' # 执行（计费）
+    EXECUTION_TEST = 'execution_test'       # 执行（测试）
+    CANCEL = 'cancel'                       # 取消
+    
+    CHOICES = [
+        (EXECUTION_BILLING, _('执行（计费）')),
+        (EXECUTION_TEST, _('执行（测试）')),
+        (CANCEL, _('取消')),
+    ]
+
+
 # =============================================================================
 # 资源核查相关选择项
 # =============================================================================
@@ -161,9 +167,9 @@ class ResourceCheckTypeChoices(ChoiceSet):
     COLOCATION = 'colocation'           # 托管业务
     
     CHOICES = [
-        (TRANSMISSION, _('传输专线业务')),
-        (FIBER, _('光缆光纤业务')),
-        (COLOCATION, _('托管业务')),
+        (TRANSMISSION, _('传输专线业务'), 'blue'),
+        (FIBER, _('光缆光纤业务'), 'orange'),
+        (COLOCATION, _('托管业务'), 'purple'),
     ]
 
 
@@ -275,5 +281,19 @@ class ColocationDeviceTypeChoices(ChoiceSet):
         (TRANSMISSION, _('传输设备')),
         (SWITCH, _('交换机')),
         (ROUTER, _('路由器')),
+        (OTHER, _('其他')),
+    ]
+
+
+class AddMethodChoices(ChoiceSet):
+    """增加方式选择项"""
+    
+    NEW = 'new'           # 新购
+    ALLOCATION = 'allocation' # 调配
+    OTHER = 'other'       # 其他
+    
+    CHOICES = [
+        (NEW, _('新购')),
+        (ALLOCATION, _('调配')),
         (OTHER, _('其他')),
     ]

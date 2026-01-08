@@ -5,9 +5,9 @@ from django.db.models import Count
 
 from netbox.api.viewsets import NetBoxModelViewSet
 
-from ..models import ServiceOrder, TaskDetail, ResourceLedger
-from ..filtersets import ServiceOrderFilterSet, TaskDetailFilterSet, ResourceLedgerFilterSet
-from .serializers import ServiceOrderSerializer, TaskDetailSerializer, ResourceLedgerSerializer
+from ..models import ServiceOrder, TaskDetail, ResourceLedger, ResourceCheckResult
+from ..filtersets import ServiceOrderFilterSet, TaskDetailFilterSet, ResourceLedgerFilterSet, ResourceCheckResultFilterSet
+from .serializers import ServiceOrderSerializer, TaskDetailSerializer, ResourceLedgerSerializer, ResourceCheckResultSerializer
 
 
 class ServiceOrderViewSet(NetBoxModelViewSet):
@@ -35,3 +35,11 @@ class ResourceLedgerViewSet(NetBoxModelViewSet):
     queryset = ResourceLedger.objects.select_related('service_order').prefetch_related('tags')
     serializer_class = ResourceLedgerSerializer
     filterset_class = ResourceLedgerFilterSet
+
+
+class ResourceCheckResultViewSet(NetBoxModelViewSet):
+    """资源核查结果 API 视图集"""
+    
+    queryset = ResourceCheckResult.objects.select_related('service_order').prefetch_related('tags')
+    serializer_class = ResourceCheckResultSerializer
+    filterset_class = ResourceCheckResultFilterSet

@@ -11,5 +11,6 @@ router = NetBoxRouter()
 router.register('service-orders', views.ServiceOrderViewSet)
 router.register('tasks', views.TaskDetailViewSet)
 router.register('resources', views.ResourceLedgerViewSet)
+router.register('check-results', views.ResourceCheckResultViewSet)
 
 urlpatterns = router.urls

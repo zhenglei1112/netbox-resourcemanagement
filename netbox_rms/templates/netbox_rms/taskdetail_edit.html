@@ -1,0 +1,474 @@
+{% extends 'generic/object_edit.html' %}
+{% load form_helpers %}
+{% load i18n %}
+
+{% block form %}
+{{ block.super }}
+
+{# 传输业务-电路信息动态输入区域 (Compact Card Style) #}
+<div id="trans-circuits-container" class="field-group my-3" style="display: none;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0 fw-bold fs-6">{% trans "电路信息列表" %}</h5>
+        <button type="button" class="btn btn-xs btn-outline-primary" id="add-circuit-btn">
+            <i class="mdi mdi-plus"></i> {% trans "添加电路" %}
+        </button>
+    </div>
+    
+    {# 列表容器 #}
+    <div id="circuits-list">
+        {# Initial Empty State #}
+    </div>
+</div>
+
+<template id="circuit-item-template">
+<div class="card mb-2 circuit-item shadow-sm border-secondary-subtle">
+        <div class="card-body p-2">
+            {# 第一行：核心信息 (Grid Alignment) #}
+            <div class="row g-2 mb-2 align-items-center">
+                {# 链路编号：对齐下方 A端信息 (col-md-6) #}
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light fw-bold text-secondary">{% trans "链路编号" %}</span>
+                        <input type="text" class="form-control c-code" placeholder="{% trans '输入电路编号' %}">
+                    </div>
+                </div>
+                
+                {# 带宽：对齐下方 Z端信息的黄金分割短部分 (col-md-2, approx 38.2% of col-6) #}
+                <div class="col-md-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light fw-bold text-secondary">{% trans "带宽" %}</span>
+                        <select class="form-select c-bandwidth">
+                            <option value="">--</option>
+                            {% for value, label in bandwidth_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                {# 删除按钮：占据剩余空间，靠右 #}
+                <div class="col-md-4 d-flex justify-content-end">
+                    <button type="button" class="btn btn-sm btn-ghost-danger remove-circuit-btn py-0 px-2" title="{% trans '删除' %}">
+                        <i class="mdi mdi-close"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="row g-2">
+                {# A端 #}
+                <div class="col-md-6">
+                    <div class="d-flex flex-column h-100 border rounded-1 bg-light px-2 py-1">
+                        <div class="fw-bold text-secondary small mb-1 border-bottom border-secondary-subtle">
+                            <i class="mdi mdi-alpha-a-box text-primary me-1"></i>{% trans "A端信息" %}
+                        </div>
+                        <div class="row g-1 pb-1">
+                            <div class="col-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "站点" %}</span>
+                                    <input type="text" class="form-control px-1 c-site-a">
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "设备" %}</span>
+                                    <input type="text" class="form-control px-1 c-model-a">
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "板卡槽位" %}</span>
+                                    <input type="text" class="form-control px-1 c-card-a">
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "端口" %}</span>
+                                    <input type="text" class="form-control px-1 c-port-a">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Z端 #}
+                <div class="col-md-6">
+                    <div class="d-flex flex-column h-100 border rounded-1 bg-light px-2 py-1">
+                        <div class="fw-bold text-secondary small mb-1 border-bottom border-secondary-subtle">
+                            <i class="mdi mdi-alpha-z-box text-dark me-1"></i>{% trans "Z端信息" %}
+                        </div>
+                         <div class="row g-1 pb-1">
+                            <div class="col-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "站点" %}</span>
+                                    <input type="text" class="form-control px-1 c-site-z">
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "设备" %}</span>
+                                    <input type="text" class="form-control px-1 c-model-z">
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "板卡槽位" %}</span>
+                                    <input type="text" class="form-control px-1 c-card-z">
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text px-1 text-muted" style="min-width: 35px;">{% trans "端口" %}</span>
+                                    <input type="text" class="form-control px-1 c-port-z">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+{# 托管业务-设备信息动态输入区域 #}
+<div id="colo-devices-container" class="field-group my-3" style="display: none;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0 fw-bold fs-6">{% trans "托管设备列表" %}</h5>
+        <button type="button" class="btn btn-xs btn-outline-primary" id="add-colo-device-btn">
+            <i class="mdi mdi-plus"></i> {% trans "添加设备" %}
+        </button>
+    </div>
+    
+    <div id="colo-devices-list">
+        {# Initial Empty State #}
+    </div>
+</div>
+
+<template id="colo-device-template">
+    <div class="card mb-2 colo-device-item shadow-sm border-secondary-subtle">
+        <div class="card-body p-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light fw-bold text-secondary">{% trans "设备型号" %}</span>
+                        <input type="text" class="form-control c-model" placeholder="{% trans '型号/名称' %}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light fw-bold text-secondary">{% trans "机柜" %}</span>
+                        <input type="text" class="form-control c-cabinet" placeholder="{% trans '机柜号' %}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light fw-bold text-secondary">{% trans "U位" %}</span>
+                        <input type="text" class="form-control c-unit" placeholder="{% trans 'U位' %}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light fw-bold text-secondary">{% trans "接电" %}</span>
+                        <input type="text" class="form-control c-power" placeholder="{% trans '电源信息' %}">
+                    </div>
+                </div>
+                <div class="col-md-1 d-flex justify-content-end">
+                    <button type="button" class="btn btn-sm btn-ghost-danger remove-device-btn py-0 px-2" title="{% trans '删除' %}">
+                        <i class="mdi mdi-close"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // =========================================================
+    // 传输专线 - 电路信息逻辑
+    // =========================================================
+    const circuitsContainer = document.getElementById('trans-circuits-container');
+    const circuitsList = document.getElementById('circuits-list');
+    const circuitTemplate = document.getElementById('circuit-item-template');
+    const circuitsJsonField = document.querySelector('[name="fb_trans_circuits_json"]');
+    const addCircuitBtn = document.getElementById('add-circuit-btn');
+    
+    // 移动容器到合适位置
+    function moveCircuitsContainer() {
+        const anchorField = document.querySelector('[name="fb_trans_module_add_desc"]');
+        if (anchorField && circuitsContainer) {
+            const container = anchorField.closest('.field-group');
+            if (container) {
+                container.parentNode.insertBefore(circuitsContainer, container.nextSibling);
+            }
+        }
+    }
+    
+    // 创建一个电路卡片
+    function createCircuitCard(data = {}) {
+        const clone = circuitTemplate.content.cloneNode(true);
+        const card = clone.querySelector('.circuit-item');
+        
+        // 填充数据
+        const setVal = (cls, val) => {
+            const el = card.querySelector(`.${cls}`);
+            if (el) el.value = val || '';
+        };
+        
+        setVal('c-code', data.code);
+        setVal('c-bandwidth', data.bandwidth);
+        
+        setVal('c-site-a', data.site_a);
+        setVal('c-model-a', data.model_a);
+        setVal('c-card-a', data.card_a);
+        setVal('c-port-a', data.port_a);
+        
+        setVal('c-site-z', data.site_z);
+        setVal('c-model-z', data.model_z);
+        setVal('c-card-z', data.card_z);
+        setVal('c-port-z', data.port_z);
+        
+        // 绑定事件
+        // 删除
+        const removeBtn = card.querySelector('.remove-circuit-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                if(confirm('{% trans "确定删除此条电路信息?" %}')) {
+                    card.remove();
+                    updateCircuitsJson();
+                }
+            });
+        }
+        
+        // 输入变化监听
+        card.querySelectorAll('input, select').forEach(input => {
+            input.addEventListener('input', updateCircuitsJson);
+            input.addEventListener('change', updateCircuitsJson);
+        });
+        
+        return card;
+    }
+    
+    // 从 DOM 收集数据并更新 JSON
+    function updateCircuitsJson() {
+        const circuits = [];
+        if (!circuitsList) return;
+        
+        circuitsList.querySelectorAll('.circuit-item').forEach(card => {
+            const getVal = (cls) => {
+                const el = card.querySelector(`.${cls}`);
+                return el ? el.value : '';
+            };
+            
+            circuits.push({
+                code: getVal('c-code'),
+                bandwidth: getVal('c-bandwidth'),
+                
+                site_a: getVal('c-site-a'),
+                model_a: getVal('c-model-a'),
+                card_a: getVal('c-card-a'),
+                port_a: getVal('c-port-a'),
+                
+                site_z: getVal('c-site-z'),
+                model_z: getVal('c-model-z'),
+                card_z: getVal('c-card-z'),
+                port_z: getVal('c-port-z'),
+            });
+        });
+        
+        if (circuitsJsonField) {
+            circuitsJsonField.value = JSON.stringify(circuits);
+        }
+    }
+    
+    // 初始化加载
+    function initCircuits() {
+        if (circuitsJsonField && circuitsJsonField.value) {
+            try {
+                const data = JSON.parse(circuitsJsonField.value);
+                if (Array.isArray(data)) {
+                    data.forEach(item => {
+                        circuitsList.appendChild(createCircuitCard(item));
+                    });
+                }
+            } catch (e) {
+                console.error("Parse circuits JSON failed", e);
+            }
+        }
+    }
+    
+    if (addCircuitBtn) {
+        addCircuitBtn.addEventListener('click', () => {
+            circuitsList.appendChild(createCircuitCard());
+            updateCircuitsJson();
+        });
+    }
+
+    // =========================================================
+    // 托管业务 - 设备信息逻辑
+    // =========================================================
+    const coloContainer = document.getElementById('colo-devices-container');
+    const coloList = document.getElementById('colo-devices-list');
+    const coloTemplate = document.getElementById('colo-device-template');
+    const coloJsonField = document.querySelector('[name="fb_colocation_info_json"]');
+    const addColoBtn = document.getElementById('add-colo-device-btn');
+    
+    function moveColoContainer() {
+        const anchorField = document.querySelector('[name="fb_colocation_cable_odf"]');
+        if (anchorField && coloContainer) {
+            const container = anchorField.closest('.field-group');
+            if (container) {
+                container.parentNode.insertBefore(coloContainer, container.nextSibling);
+            }
+        }
+    }
+    
+    function createColoCard(data = {}) {
+        const clone = coloTemplate.content.cloneNode(true);
+        const card = clone.querySelector('.colo-device-item');
+        
+        const setVal = (cls, val) => {
+             const el = card.querySelector(`.${cls}`);
+             if (el) el.value = val || '';
+        };
+        
+        setVal('c-model', data.model);
+        setVal('c-cabinet', data.cabinet);
+        setVal('c-unit', data.unit);
+        setVal('c-power', data.power);
+        
+        const removeBtn = card.querySelector('.remove-device-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                if(confirm('{% trans "确定删除此台设备?" %}')) {
+                    card.remove();
+                    updateColoJson();
+                }
+            });
+        }
+        
+        card.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateColoJson);
+            input.addEventListener('change', updateColoJson);
+        });
+        
+        return card;
+    }
+    
+    function updateColoJson() {
+        const devices = [];
+        if (!coloList) return;
+        
+        coloList.querySelectorAll('.colo-device-item').forEach(card => {
+             const getVal = (cls) => {
+                 const el = card.querySelector(`.${cls}`);
+                 return el ? el.value : '';
+             };
+             devices.push({
+                 model: getVal('c-model'),
+                 cabinet: getVal('c-cabinet'),
+                 unit: getVal('c-unit'),
+                 power: getVal('c-power')
+             });
+        });
+        
+        if (coloJsonField) {
+            coloJsonField.value = JSON.stringify(devices);
+        }
+    }
+    
+    function initColoDevices() {
+        if (coloJsonField && coloJsonField.value) {
+            try {
+                const data = JSON.parse(coloJsonField.value);
+                if (Array.isArray(data)) {
+                    data.forEach(item => {
+                        coloList.appendChild(createColoCard(item));
+                    });
+                }
+            } catch (e) {
+                console.error("Parse colo JSON failed", e);
+            }
+        }
+    }
+    
+    if (addColoBtn) {
+         addColoBtn.addEventListener('click', () => {
+             coloList.appendChild(createColoCard());
+             updateColoJson();
+         });
+    }
+
+    // =========================================================
+    // 初始化 & 动态显示逻辑
+    // =========================================================
+    moveCircuitsContainer();
+    initCircuits();
+    
+    moveColoContainer();
+    initColoDevices();
+
+    const currentCheckType = "{{ check_type|default:'' }}";
+    
+    const fieldGroups = {
+        'transmission': [
+            'fb_trans_is_card_added', 'fb_trans_card_add_method', 'fb_trans_card_add_desc',
+            'fb_trans_is_module_added', 'fb_trans_module_add_method', 'fb_trans_module_add_desc',
+        ],
+        'fiber': [
+            'fb_fiber_core_count', 'fb_fiber_site_a', 'fb_fiber_odf_a', 'fb_fiber_desc_a', 'fb_fiber_site_z', 'fb_fiber_odf_z', 'fb_fiber_desc_z',
+        ],
+        'colocation': [
+            'fb_colocation_site', 'fb_colocation_cable_count', 'fb_colocation_cable_odf',
+        ]
+    };
+
+    function getFieldSetContainer(fieldName) {
+        const field = document.querySelector(`[name="${fieldName}"]`);
+        if (field) {
+            return field.closest('.field-group');
+        }
+        return null;
+    }
+    
+    function toggleFields() {
+        Object.keys(fieldGroups).forEach(type => {
+            const fields = fieldGroups[type];
+            if (fields && fields.length > 0) {
+                const container = getFieldSetContainer(fields[0]);
+                if (container) {
+                     if (type === currentCheckType) {
+                         container.style.display = '';
+                     } else {
+                         container.style.display = 'none';
+                     }
+                }
+            }
+        });
+        
+        // Toggle Circuits Container
+        if (circuitsContainer) {
+            if (currentCheckType === 'transmission') {
+                 circuitsContainer.style.display = 'block';
+            } else {
+                 circuitsContainer.style.display = 'none';
+            }
+        }
+        
+        // Toggle Colocation Container
+        if (coloContainer) {
+            if (currentCheckType === 'colocation') {
+                coloContainer.style.display = 'block';
+            } else {
+                coloContainer.style.display = 'none';
+            }
+        }
+    }
+    
+    toggleFields();
+});
+</script>
+{% endblock %}

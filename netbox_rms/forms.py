@@ -12,12 +12,14 @@ from utilities.forms.fields import DynamicModelChoiceField, CommentField
 from utilities.forms.rendering import FieldSet
 from dcim.models import Site
 
-from .models import ServiceOrder, TaskDetail, ResourceLedger
+from .models import ServiceOrder, TaskDetail, ResourceLedger, ResourceCheckResult
 from tenancy.models import Tenant
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from .choices import (
     TaskTypeChoices,
-    LifecycleStatusChoices,
     ExecutionStatusChoices,
+    ExecutionDepartmentChoices,
     ResourceTypeChoices,
     InternalParticipantChoices,
     ResourceCheckTypeChoices,
@@ -30,6 +32,8 @@ from .choices import (
     ColocationCheckResultChoices,
     ColocationUnavailableReasonChoices,
     ColocationDeviceTypeChoices,
+    ConfirmationStatusChoices,
+    AddMethodChoices,
 )
 
 
@@ -52,11 +56,40 @@ class ServiceOrderForm(NetBoxModelForm):
         help_text=_('变更单必须关联原调配单'),
     )
     
+    project_report_code = forms.CharField(
+        required=False,
+        label=_('项目报备编号'),
+    )
+
+    project_approval_code = forms.CharField(
+        required=False,
+        label=_('立项编号'),
+    )
+
+    contract_code = forms.CharField(
+        required=False,
+        label=_('合同编号'),
+    )
+
+    confirmation_status = forms.ChoiceField(
+        choices=[('', '---------')] + list(ConfirmationStatusChoices.CHOICES),
+        required=False,
+        label=_('确认执行状态'),
+    )
+
+
+
+    special_notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+        label=_('特殊情况说明'),
+    )
+    
     comments = CommentField()
     
     # 显式定义 check_type 字段
     check_type = forms.ChoiceField(
-        choices=[('', '---------')] + list(ResourceCheckTypeChoices.CHOICES),
+        choices=[('', '---------')] + [(c[0], c[1]) for c in ResourceCheckTypeChoices.CHOICES],
         required=False,
         label=_('核查业务类别'),
     )
@@ -87,7 +120,7 @@ class ServiceOrderForm(NetBoxModelForm):
     )
     
     check_interface_type = forms.ChoiceField(
-        choices=[('', '---------')] + list(InterfaceTypeChoices.CHOICES),
+        choices=[('', '---------')] + [(c[0], c[1]) for c in InterfaceTypeChoices.CHOICES],
         required=False,
         label=_('接口类型'),
     )
@@ -119,55 +152,11 @@ class ServiceOrderForm(NetBoxModelForm):
         label=_('托管设备数据'),
     )
     
-    # ========== 核查结果选择字段 ==========
-    # 传输专线核查结果
-    check_result_transmission = forms.ChoiceField(
-        choices=[('', '---------')] + list(TransmissionCheckResultChoices.CHOICES),
-        required=False,
-        label=_('核查结果'),
-    )
-    
-    # 光缆光纤核查结果
-    check_result_fiber = forms.ChoiceField(
-        choices=[('', '---------')] + list(FiberCheckResultChoices.CHOICES),
-        required=False,
-        label=_('核查结果'),
-    )
-    
-    # 托管业务核查结果
-    check_result_colocation = forms.ChoiceField(
-        choices=[('', '---------')] + list(ColocationCheckResultChoices.CHOICES),
-        required=False,
-        label=_('核查结果'),
-    )
-    
-    # 传输专线不具备原因（多选）
-    check_unavailable_reasons_transmission = forms.MultipleChoiceField(
-        choices=TransmissionUnavailableReasonChoices.CHOICES,
-        required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
-        label=_('不具备原因'),
-    )
-    
-    # 光缆光纤不具备原因（多选）
-    check_unavailable_reasons_fiber = forms.MultipleChoiceField(
-        choices=FiberUnavailableReasonChoices.CHOICES,
-        required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
-        label=_('不具备原因'),
-    )
-    
-    # 托管不具备原因（多选）
-    check_unavailable_reasons = forms.MultipleChoiceField(
-        choices=ColocationUnavailableReasonChoices.CHOICES,
-        required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
-        label=_('不具备原因'),
-    )
+
     
     fieldsets = (
         FieldSet(
-            'order_no', 'tenant', 'project_code', 'sales_contact',
+            'order_no', 'tenant', 'sales_contact',
             'business_manager', 'internal_participant',
             'apply_date', 'deadline_date',
             name=_('申请信息'),
@@ -180,20 +169,23 @@ class ServiceOrderForm(NetBoxModelForm):
             name=_('资源核查'),
         ),
         FieldSet(
-            'check_result_transmission', 'check_result_fiber', 'check_result_colocation',
-            'check_unavailable_reasons_transmission', 'check_unavailable_reasons_fiber', 'check_unavailable_reasons',
-            name=_('核查结果'),
+            'project_report_code', 'project_approval_code', 'contract_code', 'confirmation_status',
+            'billing_start_date', 'special_notes',
+            name=_('执行信息'),
         ),
+
         FieldSet('tags', name=_('标签')),
     )
     
     class Meta:
         model = ServiceOrder
         fields = [
-            'order_no', 'tenant', 'project_code', 'sales_contact',
+            'order_no', 'tenant', 'project_report_code', 'project_approval_code',
+            'contract_code', 'confirmation_status',
+            'sales_contact',
             'business_manager', 'internal_participant',
             'apply_date', 'deadline_date', 'billing_start_date',
-            'parent_order',
+            'parent_order', 'special_notes',
             'comments', 'tags',
         ]
         widgets = {
@@ -205,6 +197,9 @@ class ServiceOrderForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
+        if self.instance and self.instance.pk:
+            self.initial['check_type'] = self.instance.check_type
+
         # 从 check_data 中解析初始值
         if self.instance and self.instance.pk:
             data = self.instance.check_data or {}
@@ -229,26 +224,7 @@ class ServiceOrderForm(NetBoxModelForm):
                     self.initial['check_devices_json'] = devices_json
                     self.fields['check_devices_json'].initial = devices_json
         
-        # 加载核查类型和结果到对应字段
-        if self.instance and self.instance.pk:
-            check_type = self.instance.check_type or ''
-            check_result = self.instance.check_result or ''
-            
-            # 加载核查类型
-            self.initial['check_type'] = check_type
-            
-            # 加载核查结果到对应字段
-            if check_type == 'transmission':
-                self.initial['check_result_transmission'] = check_result
-            elif check_type == 'fiber':
-                self.initial['check_result_fiber'] = check_result
-            elif check_type == 'colocation':
-                self.initial['check_result_colocation'] = check_result
-            
-            # 加载不具备原因
-            reasons = self.instance.unavailable_reasons
-            if reasons and isinstance(reasons, list):
-                self.initial['check_unavailable_reasons'] = reasons
+
     
     def clean(self):
         cleaned_data = super().clean()
@@ -310,17 +286,7 @@ class ServiceOrderForm(NetBoxModelForm):
         
         cleaned_data['check_data'] = check_data
         
-        # 根据 check_type 获取对应的核查结果
-        if check_type == 'transmission':
-            cleaned_data['check_result'] = cleaned_data.get('check_result_transmission', '')
-        elif check_type == 'fiber':
-            cleaned_data['check_result'] = cleaned_data.get('check_result_fiber', '')
-        elif check_type == 'colocation':
-            cleaned_data['check_result'] = cleaned_data.get('check_result_colocation', '')
-            # 处理不具备原因
-            cleaned_data['unavailable_reasons'] = cleaned_data.get('check_unavailable_reasons', [])
-        else:
-            cleaned_data['check_result'] = ''
+
         
         return cleaned_data
     
@@ -346,7 +312,7 @@ class ServiceOrderForm(NetBoxModelForm):
                     pass
             return None
         
-        unavailable_reasons = []
+
         
         if check_type == 'transmission':
             check_data['bandwidth'] = self.data.get('check_bandwidth', '')
@@ -362,9 +328,7 @@ class ServiceOrderForm(NetBoxModelForm):
             if site_z_info:
                 check_data['site_z_id'] = site_z_info['id']
                 check_data['site_z_name'] = site_z_info['name']
-            check_result = self.data.get('check_result_transmission', '')
-            # 传输专线不具备原因（多选列表）
-            unavailable_reasons = self.data.getlist('check_unavailable_reasons_transmission', [])
+
             
         elif check_type == 'fiber':
             check_data['quantity'] = int(self.data.get('check_quantity') or 0) or None
@@ -379,9 +343,7 @@ class ServiceOrderForm(NetBoxModelForm):
             if site_z_info:
                 check_data['site_z_id'] = site_z_info['id']
                 check_data['site_z_name'] = site_z_info['name']
-            check_result = self.data.get('check_result_fiber', '')
-            # 光缆光纤不具备原因（多选列表）
-            unavailable_reasons = self.data.getlist('check_unavailable_reasons_fiber', [])
+
             
         elif check_type == 'colocation':
             site_info = get_site_info('check_site')
@@ -395,17 +357,9 @@ class ServiceOrderForm(NetBoxModelForm):
                     check_data['devices'] = json.loads(devices_json)
                 except json.JSONDecodeError:
                     check_data['devices'] = []
-            check_result = self.data.get('check_result_colocation', '')
-            # 托管业务不具备原因（多选列表）
-            unavailable_reasons = self.data.getlist('check_unavailable_reasons', [])
-        else:
-            check_result = ''
-        
         # 保存到实例
         instance.check_type = check_type
         instance.check_data = check_data
-        instance.check_result = check_result
-        instance.unavailable_reasons = unavailable_reasons
         
         if commit:
             instance.save()
@@ -455,60 +409,243 @@ class TaskDetailForm(NetBoxModelForm):
         label=_('所属主工单'),
     )
     
+
+    
     comments = CommentField()
+
+    assignee = DynamicModelChoiceField(
+        queryset=get_user_model().objects.all(),
+        required=False,
+        label=_('执行人'),
+    )
+
+    # ========== 执行反馈信息字段 ==========
+    # 公共字段
+    fb_config_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label=_('业务配置日期'),
+    )
+    fb_test_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        label=_('连通测试日期'),
+    )
+    fb_remarks = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+        label=_('反馈备注'),
+    )
+
+    # 传输专线业务
+    fb_trans_is_card_added = forms.BooleanField(required=False, label=_('增加了板卡'))
+    fb_trans_card_add_method = forms.ChoiceField(
+        choices=[('', '---------')] + list(AddMethodChoices.CHOICES),
+        required=False,
+        label=_('板卡增加方式'),
+    )
+    fb_trans_card_add_desc = forms.CharField(required=False, label=_('板卡增加说明'))
+    
+    fb_trans_is_module_added = forms.BooleanField(required=False, label=_('增加了模块'))
+    fb_trans_module_add_method = forms.ChoiceField(
+        choices=[('', '---------')] + list(AddMethodChoices.CHOICES),
+        required=False,
+        label=_('模块增加方式'),
+    )
+    fb_trans_module_add_desc = forms.CharField(required=False, label=_('模块增加说明'))
+    
+    fb_trans_circuits_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label=_('电路信息数据'),
+    )
+
+    # 光缆光纤业务
+    fb_fiber_core_count = forms.IntegerField(required=False, label=_('纤芯数量'))
+    
+    fb_fiber_site_a = DynamicModelChoiceField(
+        queryset=Site.objects.all(),
+        required=False,
+        label=_('A端站点'),
+    )
+    fb_fiber_odf_a = forms.CharField(required=False, label=_('A端ODF信息'))
+    fb_fiber_desc_a = forms.CharField(required=False, label=_('A端说明'))
+    
+    fb_fiber_site_z = DynamicModelChoiceField(
+        queryset=Site.objects.all(),
+        required=False,
+        label=_('Z端站点'),
+    )
+    fb_fiber_odf_z = forms.CharField(required=False, label=_('Z端ODF信息'))
+    fb_fiber_desc_z = forms.CharField(required=False, label=_('Z端说明'))
+
+    # 托管业务
+    fb_colocation_site = DynamicModelChoiceField(
+        queryset=Site.objects.all(),
+        required=False,
+        label=_('机房站点'),
+    )
+    fb_colocation_info_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label=_('托管信息数据'),
+    )
+    fb_colocation_cable_count = forms.IntegerField(required=False, label=_('出局缆数量'))
+    fb_colocation_cable_odf = forms.CharField(required=False, label=_('出局缆ODF信息'))
     
     fieldsets = (
         FieldSet(
-            'service_order', 'task_type', 'lifecycle_status', 'execution_status',
+            'service_order', 'task_type', 'execution_status', 'execution_department',
+            'assignee',
             name=_('基础信息'),
         ),
         FieldSet(
-            'service_type', 'bandwidth', 'protection', 'protection_type',
-            'interface_type', 'site_a', 'site_z',
-            name=_('技术参数'),
+            'fb_trans_is_card_added', 'fb_trans_card_add_method', 'fb_trans_card_add_desc',
+            'fb_trans_is_module_added', 'fb_trans_module_add_method', 'fb_trans_module_add_desc',
+            name=_('传输反馈'),
         ),
         FieldSet(
-            'circuit_id', 'dev_model_a', 'slot_a', 'port_a',
-            'dev_model_z', 'slot_z', 'port_z',
-            'config_status', 'test_status',
-            name=_('运维实施参数'),
+            'fb_fiber_core_count', 
+            'fb_fiber_site_a', 'fb_fiber_odf_a', 'fb_fiber_desc_a',
+            'fb_fiber_site_z', 'fb_fiber_odf_z', 'fb_fiber_desc_z',
+            name=_('光缆反馈'),
         ),
         FieldSet(
-            'cable_core', 'odf_pos', 'jump_status',
-            'ext_resource', 'ext_contract',
-            name=_('管线实施参数'),
+            'fb_colocation_site', 'fb_colocation_cable_count', 'fb_colocation_cable_odf',
+            name=_('托管反馈'),
         ),
         FieldSet(
-            'device_brand', 'dimensions', 'power_rating',
-            'rack_u_pos', 'power_status',
-            name=_('设备托管参数'),
+            'fb_config_date', 'fb_test_date', 'fb_remarks',
+            name=_('执行结果汇总'),
         ),
         FieldSet(
-            'change_types', 'old_value', 'new_value', 'ext_handle',
-            name=_('变更管理参数'),
+            'tags',
+            name=_('其他信息')
         ),
     )
     
     class Meta:
         model = TaskDetail
         fields = [
-            # 基础
-            'service_order', 'task_type', 'lifecycle_status', 'execution_status',
-            # 技术参数
-            'service_type', 'bandwidth', 'protection', 'protection_type',
-            'interface_type', 'site_a', 'site_z',
-            # 运维参数
-            'circuit_id', 'dev_model_a', 'slot_a', 'port_a',
-            'dev_model_z', 'slot_z', 'port_z', 'config_status', 'test_status',
-            # 管线参数
-            'cable_core', 'odf_pos', 'jump_status', 'ext_resource', 'ext_contract',
-            # 托管参数
-            'device_brand', 'dimensions', 'power_rating', 'rack_u_pos', 'power_status',
-            # 变更参数
-            'change_types', 'old_value', 'new_value', 'ext_handle',
-            # 其他
-            'comments', 'tags',
+            'service_order', 'task_type', 'execution_status', 'execution_department',
+            'assignee', 'comments', 'tags',
+            # 临时字段不需要在Meta.fields中声明，除非它们是模型字段。
+            # 但这里我们主要靠 clean/save 处理，不需要列在这里，
+            # 不过为了 Standard ModelForm validation，如果不列在这里可能会被忽略？
+            # NetBoxModelForm 可能会过滤掉非 model 字段。
+            # 通常的做法是 override save 和 init，字段声明在类级别即可。
         ]
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # 初始化反馈字段
+        if self.instance and self.instance.pk and self.instance.feedback_data:
+            fb = self.instance.feedback_data
+            
+            self.initial['fb_config_date'] = fb.get('config_date')
+            self.initial['fb_test_date'] = fb.get('test_date')
+            self.initial['fb_remarks'] = fb.get('remarks')
+            
+            # 传输
+            trans = fb.get('transmission', {})
+            self.initial['fb_trans_is_card_added'] = trans.get('is_card_added')
+            self.initial['fb_trans_card_add_method'] = trans.get('card_add_method')
+            self.initial['fb_trans_card_add_desc'] = trans.get('card_add_desc')
+            self.initial['fb_trans_is_module_added'] = trans.get('is_module_added')
+            self.initial['fb_trans_module_add_method'] = trans.get('module_add_method')
+            self.initial['fb_trans_module_add_desc'] = trans.get('module_add_desc')
+            if trans.get('circuits'):
+                self.initial['fb_trans_circuits_json'] = json.dumps(trans.get('circuits'))
+                
+            # 光缆
+            fiber = fb.get('fiber', {})
+            self.initial['fb_fiber_core_count'] = fiber.get('core_count')
+            self.initial['fb_fiber_odf_a'] = fiber.get('odf_a')
+            self.initial['fb_fiber_desc_a'] = fiber.get('desc_a')
+            self.initial['fb_fiber_odf_z'] = fiber.get('odf_z')
+            self.initial['fb_fiber_desc_z'] = fiber.get('desc_z')
+            if fiber.get('site_a_id'):
+                self.initial['fb_fiber_site_a'] = fiber.get('site_a_id')
+            if fiber.get('site_z_id'):
+                self.initial['fb_fiber_site_z'] = fiber.get('site_z_id')
+                
+            # 托管
+            colo = fb.get('colocation', {})
+            self.initial['fb_colocation_cable_count'] = colo.get('cable_count')
+            self.initial['fb_colocation_cable_odf'] = colo.get('cable_odf')
+            if colo.get('site_id'):
+                self.initial['fb_colocation_site'] = colo.get('site_id')
+            if colo.get('devices'):
+                self.initial['fb_colocation_info_json'] = json.dumps(colo.get('devices'))
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # 构建 feedback_data
+        fb = {
+            'config_date': str(self.cleaned_data.get('fb_config_date') or ''),
+            'test_date': str(self.cleaned_data.get('fb_test_date') or ''),
+            'remarks': self.cleaned_data.get('fb_remarks', ''),
+        }
+        
+        # 传输
+        circuits = []
+        if self.cleaned_data.get('fb_trans_circuits_json'):
+            try:
+                circuits = json.loads(self.cleaned_data.get('fb_trans_circuits_json'))
+            except:
+                pass
+                
+        fb['transmission'] = {
+            'is_card_added': self.cleaned_data.get('fb_trans_is_card_added'),
+            'card_add_method': self.cleaned_data.get('fb_trans_card_add_method'),
+            'card_add_desc': self.cleaned_data.get('fb_trans_card_add_desc'),
+            'is_module_added': self.cleaned_data.get('fb_trans_is_module_added'),
+            'module_add_method': self.cleaned_data.get('fb_trans_module_add_method'),
+            'module_add_desc': self.cleaned_data.get('fb_trans_module_add_desc'),
+            'circuits': circuits
+        }
+        
+        # 光缆
+        site_a = self.cleaned_data.get('fb_fiber_site_a')
+        site_z = self.cleaned_data.get('fb_fiber_site_z')
+        fb['fiber'] = {
+            'core_count': self.cleaned_data.get('fb_fiber_core_count'),
+            'site_a_id': site_a.pk if site_a else None,
+            'site_a_name': site_a.name if site_a else '',
+            'odf_a': self.cleaned_data.get('fb_fiber_odf_a'),
+            'desc_a': self.cleaned_data.get('fb_fiber_desc_a'),
+            'site_z_id': site_z.pk if site_z else None,
+            'site_z_name': site_z.name if site_z else '',
+            'odf_z': self.cleaned_data.get('fb_fiber_odf_z'),
+            'desc_z': self.cleaned_data.get('fb_fiber_desc_z'),
+        }
+        
+        # 托管
+        site_colo = self.cleaned_data.get('fb_colocation_site')
+        devices = []
+        if self.cleaned_data.get('fb_colocation_info_json'):
+            try:
+                devices = json.loads(self.cleaned_data.get('fb_colocation_info_json'))
+            except:
+                pass
+                
+        fb['colocation'] = {
+            'site_id': site_colo.pk if site_colo else None,
+            'site_name': site_colo.name if site_colo else '',
+            'cable_count': self.cleaned_data.get('fb_colocation_cable_count'),
+            'cable_odf': self.cleaned_data.get('fb_colocation_cable_odf'),
+            'devices': devices
+        }
+        
+        instance.feedback_data = fb
+        
+        if commit:
+            instance.save()
+            self.save_m2m()
+            
+        return instance
 
 
 class TaskDetailFilterForm(NetBoxModelFilterSetForm):
@@ -522,27 +659,13 @@ class TaskDetailFilterForm(NetBoxModelFilterSetForm):
         label=_('任务类型'),
     )
     
-    lifecycle_status = forms.MultipleChoiceField(
-        choices=LifecycleStatusChoices,
-        required=False,
-        label=_('生命周期状态'),
-    )
-    
     execution_status = forms.MultipleChoiceField(
         choices=ExecutionStatusChoices,
         required=False,
         label=_('执行状态'),
     )
     
-    site_a = forms.CharField(
-        required=False,
-        label=_('A端站点'),
-    )
-    
-    site_z = forms.CharField(
-        required=False,
-        label=_('Z端站点'),
-    )
+
 
 
 # =============================================================================
@@ -565,10 +688,6 @@ class ResourceLedgerForm(NetBoxModelForm):
             name=_('资源信息'),
         ),
         FieldSet(
-            'lifecycle_status',
-            name=_('状态'),
-        ),
-        FieldSet(
             'snapshot',
             name=_('快照数据'),
         ),
@@ -578,7 +697,7 @@ class ResourceLedgerForm(NetBoxModelForm):
         model = ResourceLedger
         fields = [
             'service_order', 'resource_type', 'resource_id', 'resource_name',
-            'lifecycle_status', 'snapshot', 'comments', 'tags',
+            'snapshot', 'comments', 'tags',
         ]
         widgets = {
             'snapshot': forms.Textarea(attrs={'rows': 5}),
@@ -596,13 +715,120 @@ class ResourceLedgerFilterForm(NetBoxModelFilterSetForm):
         label=_('资源类型'),
     )
     
-    lifecycle_status = forms.MultipleChoiceField(
-        choices=LifecycleStatusChoices,
-        required=False,
-        label=_('生命周期状态'),
-    )
-    
     resource_id = forms.CharField(
         required=False,
         label=_('资源标识'),
+    )
+
+
+# =============================================================================
+# ResourceCheckResult 表单
+# =============================================================================
+
+class ResourceCheckResultForm(NetBoxModelForm):
+    """资源核查结果表单"""
+    
+    service_order = DynamicModelChoiceField(
+        queryset=ServiceOrder.objects.all(),
+        label=_('所属工单'),
+        required=True
+    )
+    
+    # 使用通过 ChoiceField，选项在 __init__ 中动态设置
+    check_result = forms.ChoiceField(
+        choices=[],
+        required=False,
+        label=_('核查结果'),
+    )
+    
+    unavailable_reasons = forms.MultipleChoiceField(
+        choices=[],
+        required=False,
+        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
+        label=_('不具备原因'),
+    )
+    
+    description = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3}),
+        label=_('说明'),
+    )
+    
+    fieldsets = (
+        FieldSet(
+            'service_order', 'check_result', 'unavailable_reasons', 'description',
+            name=_('核查结果详情'),
+        ),
+    )
+    
+    class Meta:
+        model = ResourceCheckResult
+        fields = [
+            'service_order', 'check_result', 'unavailable_reasons', 'description', 'tags'
+        ]
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # 1. 获取关联的 ServiceOrder
+        service_order = None
+        
+        # 情况 A: 编辑现有对象
+        if self.instance.pk and hasattr(self.instance, 'service_order'):
+            service_order = self.instance.service_order
+        
+        # 情况 B: 新建对象，从 initial 获取
+        if not service_order and 'service_order' in self.initial:
+            so_val = self.initial['service_order']
+            if isinstance(so_val, ServiceOrder):
+                service_order = so_val
+            elif so_val:
+                try:
+                    service_order = ServiceOrder.objects.get(pk=so_val)
+                except (ServiceOrder.DoesNotExist, ValueError):
+                    pass
+        
+        # 情况 C: 新建对象，从 POST data 获取 (表单校验失败重绘时)
+        if not service_order and self.data.get('service_order'):
+             try:
+                service_order = ServiceOrder.objects.get(pk=self.data.get('service_order'))
+             except (ServiceOrder.DoesNotExist, ValueError):
+                pass
+
+        # 2. 根据 ServiceOrder 的 check_type 动态设置 choices
+        if service_order:
+            check_type = service_order.check_type
+            
+            if check_type == 'transmission':
+                self.fields['check_result'].choices = [('', '---------')] + [(c[0], c[1]) for c in TransmissionCheckResultChoices.CHOICES]
+                self.fields['unavailable_reasons'].choices = [(c[0], c[1]) for c in TransmissionUnavailableReasonChoices.CHOICES]
+            elif check_type == 'fiber':
+                self.fields['check_result'].choices = [('', '---------')] + [(c[0], c[1]) for c in FiberCheckResultChoices.CHOICES]
+                self.fields['unavailable_reasons'].choices = [(c[0], c[1]) for c in FiberUnavailableReasonChoices.CHOICES]
+            elif check_type == 'colocation':
+                self.fields['check_result'].choices = [('', '---------')] + [(c[0], c[1]) for c in ColocationCheckResultChoices.CHOICES]
+                self.fields['unavailable_reasons'].choices = [(c[0], c[1]) for c in ColocationUnavailableReasonChoices.CHOICES]
+            else:
+                # 未知或无类型
+                self.fields['check_result'].choices = [('', '---------')]
+                self.fields['unavailable_reasons'].choices = []
+        else:
+            # 无法确定工单，显示空选项或默认选项
+             self.fields['check_result'].choices = [('', '请先选择工单')]
+             self.fields['unavailable_reasons'].choices = []
+
+
+class ResourceCheckResultFilterForm(NetBoxModelFilterSetForm):
+    """资源核查结果过滤表单"""
+    model = ResourceCheckResult
+    
+    service_order = DynamicModelChoiceField(
+        queryset=ServiceOrder.objects.all(),
+        required=False,
+        label=_('所属工单'),
+    )
+    
+    check_result = forms.CharField(
+        required=False,
+        label=_('核查结果')
     )

@@ -84,44 +84,30 @@ class TaskDetailTable(NetBoxTable):
         verbose_name=_('任务类型'),
     )
     
-    lifecycle_status = columns.ChoiceFieldColumn(
-        verbose_name=_('生命周期'),
+    
+    execution_department = columns.ChoiceFieldColumn(
+        verbose_name=_('执行部门'),
     )
     
     execution_status = columns.ChoiceFieldColumn(
         verbose_name=_('执行状态'),
     )
     
-    site_a = tables.Column(
-        verbose_name=_('A端站点'),
-    )
+
     
-    site_z = tables.Column(
-        verbose_name=_('Z端站点'),
+    assignee = tables.Column(
+        verbose_name=_('执行人'),
     )
-    
-    circuit_id = tables.Column(
-        verbose_name=_('电路编号'),
-    )
-    
-    config_status = columns.BooleanColumn(
-        verbose_name=_('已配置'),
-    )
-    
-    test_status = columns.BooleanColumn(
-        verbose_name=_('已测试'),
-    )
-    
+
     class Meta(NetBoxTable.Meta):
         model = TaskDetail
         fields = (
-            'pk', 'id', 'service_order', 'task_type', 'lifecycle_status',
-            'execution_status', 'site_a', 'site_z', 'circuit_id',
-            'config_status', 'test_status', 'actions',
+            'pk', 'id', 'service_order', 'task_type',
+            'execution_status', 'execution_department', 'assignee', 'actions',
         )
         default_columns = (
-            'service_order', 'task_type', 'lifecycle_status',
-            'execution_status', 'site_a', 'site_z', 'actions',
+            'service_order', 'task_type',
+            'execution_status', 'execution_department', 'assignee', 'actions',
         )
 
 
@@ -146,17 +132,13 @@ class ResourceLedgerTable(NetBoxTable):
         verbose_name=_('来源工单'),
     )
     
-    lifecycle_status = columns.ChoiceFieldColumn(
-        verbose_name=_('状态'),
-    )
-    
     class Meta(NetBoxTable.Meta):
         model = ResourceLedger
         fields = (
             'pk', 'id', 'resource_id', 'resource_type', 'resource_name',
-            'service_order', 'lifecycle_status', 'actions',
+            'service_order', 'actions',
         )
         default_columns = (
             'resource_id', 'resource_type', 'resource_name',
-            'lifecycle_status', 'actions',
+            'actions',
         )

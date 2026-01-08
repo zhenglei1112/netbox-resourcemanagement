@@ -6,7 +6,7 @@ from django.urls import include, path
 from netbox.views.generic import ObjectChangeLogView, ObjectJournalView
 
 from . import views
-from .models import ServiceOrder, TaskDetail, ResourceLedger
+from .models import ServiceOrder, TaskDetail, ResourceLedger, ResourceCheckResult
 
 app_name = 'netbox_rms'
 
@@ -46,4 +46,12 @@ urlpatterns = [
     path('resources/<int:pk>/changelog/', ObjectChangeLogView.as_view(), name='resourceledger_changelog', kwargs={'model': ResourceLedger}),
     path('resources/<int:pk>/journal/', ObjectJournalView.as_view(), name='resourceledger_journal', kwargs={'model': ResourceLedger}),
     path('resources/delete/', views.ResourceLedgerBulkDeleteView.as_view(), name='resourceledger_bulk_delete'),
+    
+    # =============================================================================
+    # ResourceCheckResult 路由
+    # =============================================================================
+    path('check-results/add/', views.ResourceCheckResultEditView.as_view(), name='resourcecheckresult_add'),
+    path('check-results/<int:pk>/edit/', views.ResourceCheckResultEditView.as_view(), name='resourcecheckresult_edit'),
+    path('check-results/<int:pk>/delete/', views.ResourceCheckResultDeleteView.as_view(), name='resourcecheckresult_delete'),
+    path('check-results/<int:pk>/changelog/', ObjectChangeLogView.as_view(), name='resourcecheckresult_changelog', kwargs={'model': ResourceCheckResult}),
 ]
