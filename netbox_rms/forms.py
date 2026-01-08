@@ -424,12 +424,12 @@ class TaskDetailForm(NetBoxModelForm):
     fb_config_date = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={'type': 'date'}),
-        label=_('业务配置日期'),
+        label=_('任务完成日期'),
     )
     fb_test_date = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={'type': 'date'}),
-        label=_('连通测试日期'),
+        label=_('任务确认日期'),
     )
     fb_remarks = forms.CharField(
         required=False,

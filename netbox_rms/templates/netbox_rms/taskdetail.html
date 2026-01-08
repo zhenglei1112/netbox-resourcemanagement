@@ -198,11 +198,11 @@
           <h5 class="card-header">执行反馈信息</h5>
           <table class="table table-hover attr-table">
             <tr>
-              <th scope="row" style="width: 30%;">配置日期</th>
+              <th scope="row" style="width: 30%;">任务完成日期</th>
               <td>{{ fb.config_date|default:"-" }}</td>
             </tr>
             <tr>
-              <th scope="row">测试日期</th>
+              <th scope="row">任务确认日期</th>
               <td>{{ fb.test_date|default:"-" }}</td>
             </tr>
             <tr>
@@ -215,13 +215,27 @@
             <tr>
               <th scope="row">增加板卡</th>
               <td>
-                {% if fb.transmission.is_card_added %}是 ({{ fb.transmission.card_add_method }} - {{ fb.transmission.card_add_desc }}){% else %}否{% endif %}
+                {% if fb.transmission.is_card_added %}
+                    是 (
+                    {% if fb.transmission.card_add_method == 'new' %}新购
+                    {% elif fb.transmission.card_add_method == 'allocation' %}调配
+                    {% elif fb.transmission.card_add_method == 'other' %}其他
+                    {% else %}{{ fb.transmission.card_add_method }}{% endif %}
+                    - {{ fb.transmission.card_add_desc }})
+                {% else %}否{% endif %}
               </td>
             </tr>
             <tr>
               <th scope="row">增加模块</th>
               <td>
-                {% if fb.transmission.is_module_added %}是 ({{ fb.transmission.module_add_method }} - {{ fb.transmission.module_add_desc }}){% else %}否{% endif %}
+                {% if fb.transmission.is_module_added %}
+                    是 (
+                    {% if fb.transmission.module_add_method == 'new' %}新购
+                    {% elif fb.transmission.module_add_method == 'allocation' %}调配
+                    {% elif fb.transmission.module_add_method == 'other' %}其他
+                    {% else %}{{ fb.transmission.module_add_method }}{% endif %}
+                    - {{ fb.transmission.module_add_desc }})
+                {% else %}否{% endif %}
               </td>
             </tr>
             {% if fb.transmission.circuits %}

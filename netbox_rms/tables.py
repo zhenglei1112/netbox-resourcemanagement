@@ -76,7 +76,7 @@ class TaskDetailTable(NetBoxTable):
     """执行任务详情表格"""
     
     service_order = tables.Column(
-        linkify=True,
+        linkify=lambda record: record.get_absolute_url(),
         verbose_name=_('主工单'),
     )
     

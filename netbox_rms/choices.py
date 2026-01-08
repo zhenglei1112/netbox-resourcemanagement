@@ -25,15 +25,13 @@ class ExecutionStatusChoices(ChoiceSet):
     """执行状态选择项"""
     
     PENDING = 'pending'                 # 待实施
-    PATCHED = 'patched'                 # 已跳接
-    CONFIGURED = 'configured'           # 已配置
-    CONNECTED = 'connected'             # 已连通
+    COMPLETED = 'completed'             # 已完成
+    CONFIRMED = 'confirmed'             # 已确认
     
     CHOICES = [
         (PENDING, _('待实施'), 'gray'),
-        (PATCHED, _('已跳接'), 'blue'),
-        (CONFIGURED, _('已配置'), 'cyan'),
-        (CONNECTED, _('已连通'), 'teal'),
+        (COMPLETED, _('已完成'), 'green'),
+        (CONFIRMED, _('已确认'), 'blue'),
     ]
 
 
