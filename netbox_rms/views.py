@@ -3,7 +3,10 @@ NetBox RMS 视图定义
 
 为每个模型实现标准 NetBox 视图集
 """
+from typing import Dict, Any, Optional
+
 from django.db.models import Count
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from netbox.views import generic
@@ -40,7 +43,7 @@ class ServiceOrderView(generic.ObjectView):
     
     queryset = ServiceOrder.objects.prefetch_related('tasks', 'resources', 'tags')
     
-    def get_extra_context(self, request, instance):
+    def get_extra_context(self, request: HttpRequest, instance: 'ServiceOrder') -> Dict[str, Any]:
         # 获取关联任务
         tasks_table = TaskDetailTable(instance.tasks.all())
         tasks_table.configure(request)
@@ -109,7 +112,7 @@ class TaskDetailEditView(generic.ObjectEditView):
     form = TaskDetailForm
     template_name = 'netbox_rms/taskdetail_edit.html'
 
-    def get_extra_context(self, request, instance):
+    def get_extra_context(self, request: HttpRequest, instance: Optional['TaskDetail']) -> Dict[str, Any]:
         from .choices import BandwidthChoices
         from .models import ServiceOrder
         

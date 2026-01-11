@@ -4,6 +4,8 @@ NetBox RMS 表单定义
 用于创建和编辑数据的 Django 表单
 """
 import json
+from typing import Dict, Any, Optional
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -194,7 +196,7 @@ class ServiceOrderForm(NetBoxModelForm):
             'billing_start_date': forms.DateInput(attrs={'type': 'date'}),
         }
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         
         if self.instance and self.instance.pk:
@@ -226,7 +228,7 @@ class ServiceOrderForm(NetBoxModelForm):
         
 
     
-    def clean(self):
+    def clean(self) -> Dict[str, Any]:
         cleaned_data = super().clean()
         
         # 使用 self.cleaned_data 而不是 super().clean() 的返回值
@@ -290,7 +292,7 @@ class ServiceOrderForm(NetBoxModelForm):
         
         return cleaned_data
     
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> ServiceOrder:
         import json
         instance = super().save(commit=False)
         
@@ -302,7 +304,7 @@ class ServiceOrderForm(NetBoxModelForm):
         
         # 辅助函数：从 POST 数据获取站点信息
         from dcim.models import Site
-        def get_site_info(field_name):
+        def get_site_info(field_name: str) -> Optional[Dict[str, Any]]:
             site_id = self.data.get(field_name)
             if site_id:
                 try:
@@ -536,7 +538,7 @@ class TaskDetailForm(NetBoxModelForm):
             # 通常的做法是 override save 和 init，字段声明在类级别即可。
         ]
         
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         
         # 初始化反馈字段
@@ -579,7 +581,7 @@ class TaskDetailForm(NetBoxModelForm):
             if colo.get('devices'):
                 self.initial['fb_colocation_info_json'] = json.dumps(colo.get('devices'))
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> TaskDetail:
         instance = super().save(commit=False)
         
         # 构建 feedback_data

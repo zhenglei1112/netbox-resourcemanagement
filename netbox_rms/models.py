@@ -6,6 +6,8 @@ NetBox RMS 数据模型
 - TaskDetail: 执行任务详情
 - ResourceLedger: 资源台账
 """
+from typing import Dict, Any, List, Optional
+
 from django.db import models
 from django.conf import settings
 from django.urls import reverse
@@ -15,6 +17,8 @@ from django.utils.translation import gettext_lazy as _
 from netbox.models import NetBoxModel
 from tenancy.models import Tenant
 from dcim.models import Site
+
+from .mixins import ColorMixin
 
 from .choices import (
     TaskTypeChoices,
@@ -31,7 +35,7 @@ from .choices import (
 )
 
 
-class ServiceOrder(NetBoxModel):
+class ServiceOrder(ColorMixin, NetBoxModel):
     """
     业务主工单模型
     
@@ -164,19 +168,19 @@ class ServiceOrder(NetBoxModel):
         verbose_name_plural = _('业务主工单')
     
     @property
-    def safe_check_data(self):
+    def safe_check_data(self) -> Dict[str, Any]:
         """安全获取 check_data，确保返回字典而非 None"""
         return self.check_data if self.check_data else {}
     
     @property
-    def check_result(self):
+    def check_result(self) -> str:
         """兼容性属性：获取关联的核查结果"""
         if hasattr(self, 'check_result_obj'):
             return self.check_result_obj.check_result
         return ''
 
     @property
-    def safe_unavailable_reasons(self):
+    def safe_unavailable_reasons(self) -> List[str]:
         """安全获取 unavailable_reasons，确保返回列表而非 None"""
         if hasattr(self, 'check_result_obj'):
             reasons = self.check_result_obj.unavailable_reasons
@@ -184,7 +188,7 @@ class ServiceOrder(NetBoxModel):
         return []
     
     @property
-    def check_result_display(self):
+    def check_result_display(self) -> str:
         """获取核查结果的中文显示"""
         result = self.check_result
         result_mapping = {
@@ -196,7 +200,7 @@ class ServiceOrder(NetBoxModel):
         return result_mapping.get(result, result or '')
     
     @property
-    def interface_type_display(self):
+    def interface_type_display(self) -> str:
         """获取接口类型的中文显示"""
         data = self.safe_check_data
         interface_type = data.get('interface_type', '')
@@ -206,20 +210,18 @@ class ServiceOrder(NetBoxModel):
         }
         return type_mapping.get(interface_type, interface_type or '')
     
-    @property
-    def get_interface_type_color(self):
-        """获取接口类型颜色 class"""
+    def get_interface_type_color(self) -> str:
+        """获取接口类型颜色（从 check_data JSON 获取）"""
         data = self.safe_check_data
         interface_type = data.get('interface_type', '')
         return InterfaceTypeChoices.colors.get(interface_type, 'secondary')
     
-    @property
-    def get_check_type_color(self):
-        """获取业务类别颜色 class"""
-        return ResourceCheckTypeChoices.colors.get(self.check_type, 'secondary')
+    def get_check_type_color(self) -> str:
+        """获取业务类别颜色"""
+        return self.get_color_for_field('check_type', ResourceCheckTypeChoices)
 
     @property
-    def site_a_object(self):
+    def site_a_object(self) -> Optional[Site]:
         """获取 A 端站点对象"""
         site_id = self.safe_check_data.get('site_a_id')
         if site_id:
@@ -230,7 +232,7 @@ class ServiceOrder(NetBoxModel):
         return None
 
     @property
-    def site_z_object(self):
+    def site_z_object(self) -> Optional[Site]:
         """获取 Z 端站点对象"""
         site_id = self.safe_check_data.get('site_z_id')
         if site_id:
@@ -241,7 +243,7 @@ class ServiceOrder(NetBoxModel):
         return None
 
     @property
-    def colocation_site_object(self):
+    def colocation_site_object(self) -> Optional[Site]:
         """获取托管业务机房对象"""
         site_id = self.safe_check_data.get('site_id')
         if site_id:
@@ -258,7 +260,7 @@ class ServiceOrder(NetBoxModel):
         return reverse('plugins:netbox_rms:serviceorder', args=[self.pk])
 
 
-class TaskDetail(NetBoxModel):
+class TaskDetail(ColorMixin, NetBoxModel):
     """
     执行任务详情模型
     
@@ -317,17 +319,17 @@ class TaskDetail(NetBoxModel):
         verbose_name=_('执行人'),
     )
 
-    def get_task_type_color(self):
+    def get_task_type_color(self) -> str:
         """获取任务类型颜色"""
-        return TaskTypeChoices.colors.get(self.task_type, 'secondary')
+        return self.get_color_for_field('task_type', TaskTypeChoices)
     
-    def get_execution_status_color(self):
+    def get_execution_status_color(self) -> str:
         """获取执行状态颜色"""
-        return ExecutionStatusChoices.colors.get(self.execution_status, 'secondary')
+        return self.get_color_for_field('execution_status', ExecutionStatusChoices)
     
-    def get_execution_department_color(self):
+    def get_execution_department_color(self) -> str:
         """获取执行部门颜色"""
-        return ExecutionDepartmentChoices.colors.get(self.execution_department, 'secondary')
+        return self.get_color_for_field('execution_department', ExecutionDepartmentChoices)
     
 
     

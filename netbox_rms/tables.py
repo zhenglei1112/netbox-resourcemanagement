@@ -84,20 +84,52 @@ class TaskDetailTable(NetBoxTable):
         verbose_name=_('任务类型'),
     )
     
+    execution_status = columns.ChoiceFieldColumn(
+        verbose_name=_('执行状态'),
+    )
     
     execution_department = columns.ChoiceFieldColumn(
         verbose_name=_('执行部门'),
     )
     
-    execution_status = columns.ChoiceFieldColumn(
-        verbose_name=_('执行状态'),
-    )
-    
-
-    
     assignee = tables.Column(
         verbose_name=_('执行人'),
     )
+    
+    def render_task_type(self, value, record):
+        """自定义任务类型渲染，使用模型的颜色方法"""
+        from django.utils.html import format_html
+        color = record.get_task_type_color()
+        display = record.get_task_type_display()
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color,
+            display
+        )
+    
+    def render_execution_status(self, value, record):
+        """自定义执行状态渲染，使用模型的颜色方法"""
+        from django.utils.html import format_html
+        color = record.get_execution_status_color()
+        display = record.get_execution_status_display()
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color,
+            display
+        )
+    
+    def render_execution_department(self, value, record):
+        """自定义执行部门渲染，使用模型的颜色方法"""
+        from django.utils.html import format_html
+        if not value:
+            return self.default
+        color = record.get_execution_department_color()
+        display = record.get_execution_department_display()
+        return format_html(
+            '<span class="badge bg-{}">{}</span>',
+            color,
+            display
+        )
 
     class Meta(NetBoxTable.Meta):
         model = TaskDetail
